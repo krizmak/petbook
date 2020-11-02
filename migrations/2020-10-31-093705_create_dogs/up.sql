@@ -1,0 +1,8 @@
+-- Your SQL goes here
+CREATE TABLE dogs (
+  id INTEGER PRIMARY KEY NOT NULL,
+  name TEXT NOT NULL,
+  age INTEGER NOT NULL,
+  bought_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  author_id INTEGER REFERENCES users(id) NOT NULL
+)

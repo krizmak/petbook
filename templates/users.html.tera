@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>All users</title>
+  </head>
+  <body>
+    <ul>
+    {% for u in users %}
+    <li><a href="/users/{{u.id}}">{{u.name}}</a>
+    </li>
+    {% endfor %}
+    </ul>
+    <a href="/useradd">Add user</a>
+  </body>
+</html>

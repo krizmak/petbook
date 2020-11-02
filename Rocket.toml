@@ -1,0 +1,5 @@
+[global.databases]
+sqlite_database = { url = "data/data.sqlite" }
+
+[development]
+template_dir = "templates"
