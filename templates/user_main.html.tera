@@ -1,0 +1,11 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Main</title>
+  </head>
+  <body>
+    <a href="/user/data">User preferences</a>
+    <a href="/user/logout">Logout</a>
+  </body>
+</html>

@@ -1,5 +1,5 @@
 [package]
-name = "hello-rust"
+name = "petbook"
 version = "0.1.0"
 authors = ["Krizmanich Karoly (Krizmanich) <karoly.krizmanich@continental-corporation.com>"]
 edition = "2018"
