@@ -52,6 +52,13 @@ pub struct Claims {
     pub aud: String,          // The audience the token was issued for
     pub iat: i64,             // Issued at -- as epoch seconds
     pub exp: i64,             // The expiry date -- as epoch seconds
+    pub email: String,
+    pub email_verified: bool,
+    pub name: String,
+    pub given_name: String,
+    pub family_name: String,
+    pub locale: String,
+    pub picture: String,
 }
 
 
@@ -75,6 +82,42 @@ struct KeyResponse {
     keys: Vec<JwkKey>,
 }
 
+#[derive(FromForm, Deserialize)]
+struct FacebookLoginInfo {
+    idtoken: String
+}
+
+#[derive(Debug, Deserialize)]
+struct FbAppToken {
+    access_token: String,
+    token_type: String
+}
+
+
+// Ok("{\"data\":{
+//           \"app_id\":\"1925360770951525\",
+//           \"type\":\"USER\",
+//           \"application\":\"KrizmaTest - Test1\",
+//           \"data_access_expires_at\":1615058100,
+//           \"expires_at\":1607288400,
+//           \"is_valid\":true,
+//           \"scopes\":[\"email\",\"public_profile\"],
+//           \"user_id\":\"1172382226451995\"}}")
+
+#[derive(Debug, Deserialize)]
+struct FbClaims {
+    data: FbData,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct FbData {
+    pub app_id: String, 
+    pub application: String, 
+    pub expires_at: i64, 
+    pub is_valid: bool, 
+    pub user_id: String,
+}
+
 const FALLBACK_TIMEOUT: Duration = Duration::from_secs(60);
 
 pub fn fetch_keys() -> Result<JwkKeys> {
@@ -87,6 +130,37 @@ pub fn fetch_keys() -> Result<JwkKeys> {
             keys: keys_to_map(result.keys),
             validity: max_age,
         });
+}
+
+pub fn fb_validate_token(user_token: &str) -> Result<()> {
+    let client_id = "1925360770951525";
+    let client_secret = "2d76326a95b256fb7118cb772e72e71c";
+    let app_url = "https://graph.facebook.com/oauth/access_token?client_id=".to_owned()
+        + &client_id
+        + "&client_secret="
+        + &client_secret
+        + "&grant_type=client_credentials";
+    
+    let http_response = reqwest::blocking::get(&app_url)?;
+    let result = http_response.json::<FbAppToken>()?;
+    let app_token = result.access_token;
+    
+    let user_url = "https://graph.facebook.com/debug_token?input_token=".to_owned()
+        +user_token
+        +"&access_token="
+        +&app_token;
+    let http_response = reqwest::blocking::get(&user_url)?;
+
+    let result = http_response.json::<FbClaims>()?;
+    println!("{:?}", result);
+
+
+    let profile_url = format!("https://graph.facebook.com/v9.0/{}?access_token={}&fields=name,email", result.data.user_id, user_token);
+    let http_response = reqwest::blocking::get(&profile_url)?;
+    println!("{:?}", &http_response.text());
+
+    
+    Ok(())
 }
 
 fn keys_to_map(keys: Vec<JwkKey>) -> HashMap<String, JwkKey> {
@@ -311,6 +385,19 @@ fn user_login_google(conn: DbConn, glogin_info: Form<GoogleLoginInfo>, mut cooki
     Ok(())
 }
 
+#[post("/user/fblogin", data="<fblogin_info>")]
+fn user_login_facebook(conn: DbConn, fblogin_info: Form<FacebookLoginInfo>, mut cookies: Cookies)
+                     -> Result<()> {
+    let token: String = fblogin_info.idtoken.clone();
+    println!("token: {}", &token);
+
+    let data = fb_validate_token(&token);
+    println!("data: {:?}", &data);
+
+    Ok(())
+}
+
+
 
 #[get("/user/logout")]
 fn user_logout(mut cookies: Cookies) -> Redirect {
@@ -330,6 +417,7 @@ fn main() {
                             user_login,
                             user_login_post,
                             user_login_google,
+                            user_login_facebook,
                             user_logout
         ])
         .launch();
