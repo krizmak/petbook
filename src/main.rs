@@ -4,6 +4,7 @@
 #[macro_use] extern crate rocket_contrib;
 
 use std::collections::HashMap;
+use std::time::Duration;
 
 use rocket::request::Form;
 use rocket::response::Redirect;
@@ -12,6 +13,9 @@ use rocket_contrib::templates::Template;
 
 use diesel::prelude::*;
 use serde::{Deserialize};
+use serde_json::{json};
+use jsonwebtoken::{encode, decode, Header, Algorithm, Validation, EncodingKey, DecodingKey, decode_header};
+use reqwest::*;
 
 // use hello_rust::schema::userauth;
 // use hello_rust::schema::users;
@@ -34,6 +38,63 @@ pub struct UserCreateInfo {
 struct LoginInfo {
     email: String,
     password: String,
+}
+
+#[derive(FromForm, Deserialize)]
+struct GoogleLoginInfo {
+    idtoken: String
+}
+
+#[derive(Debug, Deserialize)]
+pub struct Claims {
+    pub iss: String,          // The token issuer
+    pub sub: String,          // The subject the token refers to
+    pub aud: String,          // The audience the token was issued for
+    pub iat: i64,             // Issued at -- as epoch seconds
+    pub exp: i64,             // The expiry date -- as epoch seconds
+}
+
+
+#[derive(Debug, Deserialize, Eq, PartialEq)]
+pub struct JwkKey {
+    pub e: String,
+    pub alg: String,
+    pub kty: String,
+    pub kid: String,
+    pub n: String,
+}
+
+#[derive(Debug)]
+pub struct JwkKeys {
+    pub keys: HashMap<String, JwkKey>,
+    pub validity: Duration,
+}
+
+#[derive(Debug, Deserialize)]
+struct KeyResponse {
+    keys: Vec<JwkKey>,
+}
+
+const FALLBACK_TIMEOUT: Duration = Duration::from_secs(60);
+
+pub fn fetch_keys() -> Result<JwkKeys> {
+    let http_response = reqwest::blocking::get("https://www.googleapis.com/oauth2/v3/certs")?;
+    let max_age = FALLBACK_TIMEOUT;
+    let result = http_response.json::<KeyResponse>()?;
+
+    return Result::Ok(
+        JwkKeys {
+            keys: keys_to_map(result.keys),
+            validity: max_age,
+        });
+}
+
+fn keys_to_map(keys: Vec<JwkKey>) -> HashMap<String, JwkKey> {
+    let mut keys_as_map = HashMap::new();
+    for key in keys {
+        keys_as_map.insert(String::clone(&key.kid), key);
+    }
+    keys_as_map
 }
 
 // helper functions
@@ -217,6 +278,40 @@ fn user_login_post(conn: DbConn, login_info: Form<LoginInfo>, mut cookies: Cooki
     }
 }
 
+#[post("/user/googlelogin", data="<glogin_info>")]
+fn user_login_google(conn: DbConn, glogin_info: Form<GoogleLoginInfo>, mut cookies: Cookies)
+                     -> Result<()> {
+    let token: String = glogin_info.idtoken.clone();
+    println!("token: {}", &token);
+
+    let header = decode_header(&token).expect("header error");
+    println!("{:?}",header);
+    
+    let jwkkeys = fetch_keys().expect("key_fetch error");
+    println!("google keys: {:?}", jwkkeys);
+
+    let kid = match header.kid {
+        Some(kid) => kid,
+        None => panic!("kid error")
+    };
+    
+    let key = jwkkeys.keys.get(&kid).expect("key id error");
+    println!("google keys: {:?}", key);
+    
+    let decoded_token = decode::<Claims>(&token,
+                                         &DecodingKey::from_rsa_components(&key.n, &key.e),
+                                         &Validation::new(Algorithm::RS256)).expect("validation error");
+
+    // let decoded_token = match decoded_token {
+    //     Ok(decoded_token) => decoded_token,
+    //     Err(error) => panic!("Problem with decoding {:?}",error),
+    // };
+    
+    println!("{:?}",decoded_token);
+    Ok(())
+}
+
+
 #[get("/user/logout")]
 fn user_logout(mut cookies: Cookies) -> Redirect {
     cookies.remove_private(Cookie::named("user_id"));
@@ -234,6 +329,7 @@ fn main() {
                             user_add_post,
                             user_login,
                             user_login_post,
+                            user_login_google,
                             user_logout
         ])
         .launch();

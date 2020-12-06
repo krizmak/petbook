@@ -5,6 +5,86 @@
     <title>Login</title>
   </head>
   <body>
+    <script src="https://apis.google.com/js/platform.js" async defer></script>
+    <meta name="google-signin-client_id" content="1096827736105-9i3maoctaf165048vin5oicuv7pgr40u.apps.googleusercontent.com">
+    <div id="fb-root"></div>
+
+    
+<script>
+  window.fbAsyncInit = function() {
+    FB.init({
+      appId      : '1925360770951525',
+      cookie     : true,
+      xfbml      : true,
+      version    : 'v9.0'
+    });
+      
+    FB.AppEvents.logPageView();   
+      
+  };
+
+  (function(d, s, id){
+     var js, fjs = d.getElementsByTagName(s)[0];
+     if (d.getElementById(id)) {return;}
+     js = d.createElement(s); js.id = id;
+     js.src = "https://connect.facebook.net/en_US/sdk.js";
+     fjs.parentNode.insertBefore(js, fjs);
+   }(document, 'script', 'facebook-jssdk'));
+</script>
+
+<script>
+
+      function statusChangeCallback(response) {  // Called with the results from FB.getLoginStatus().
+          console.log('statusChangeCallback');
+          console.log(response);                   // The current login status of the person.
+          if (response.status === 'connected') {   // Logged into your webpage and Facebook.
+              testAPI();  
+          } else {                                 // Not logged into your webpage or we are unable to tell.
+              document.getElementById('status').innerHTML = 'Please log ' +
+                  'into this webpage.';
+          }
+      }
+
+      function checkLoginState() {               // Called when a person is finished with the Login Button.
+          FB.getLoginStatus(function(response) {   // See the onlogin handler
+              statusChangeCallback(response);
+          });
+      }
+
+
+ 
+      function testAPI() {                      // Testing Graph API after login.  See statusChangeCallback() for when this call is made.
+          console.log('Welcome!  Fetching your information.... ');
+          FB.api('/me', function(response) {
+              console.log('Successful login for: ' + response.name);
+              document.getElementById('status').innerHTML =
+                  'Thanks for logging in, ' + response.name + '!';
+          });
+      }
+
+</script>
+
+
+<script>
+  function onSignIn(googleUser) {
+      var profile = googleUser.getBasicProfile();
+      var id_token = googleUser.getAuthResponse().id_token;
+      var xhr = new XMLHttpRequest();
+      xhr.open('POST', 'http://localhost:8000/user/googlelogin');
+      xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+      xhr.onload = function() {
+          console.log('Signed in as: ' + xhr.responseText);
+      };
+      xhr.send('idtoken=' + id_token);
+      
+      console.log('ID: ' + profile.getId()); // Do not send to your backend! Use an ID token instead.
+      console.log('Name: ' + profile.getName());
+      console.log('Image URL: ' + profile.getImageUrl());
+      console.log('Email: ' + profile.getEmail()); // This is null if the 'email' scope is not present.
+  }  
+</script>
+  
+
     <form action="/user/login" method="post">
       <label for="email">Email:</label><br>
       <input type="email" id="email" name="email" value=""><br><br>
@@ -12,6 +92,14 @@
       <input type="password" id="password" name="password" value=""><br><br>
       <input type="submit" value="Submit">
     </form>
-    <a href="/user/create">Register</a>
+    <a href="/user/create">Register</a><br><br>
+
+    <!-- The JS SDK Login Button -->
+
+    <div class="fb-login-button" data-size="large" data-button-type="continue_with" data-layout="default" data-auto-logout-link="false" data-use-continue-as="false" data-width="" scope="public_profile,email" onlogin="checkLoginState();"></div>
+    <div id="status">
+    </div>
+
+    <div class="g-signin2" data-onsuccess="onSignIn"></div>    
   </body>
 </html>
