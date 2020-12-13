@@ -12,7 +12,9 @@ table! {
     userauth (id) {
         id -> Integer,
         user_id -> Integer,
-        password_hash -> Text,
+        password_hash -> Nullable<Text>,
+        google_id -> Nullable<Text>,
+        facebook_id -> Nullable<Text>,
     }
 }
 
@@ -21,7 +23,7 @@ table! {
         id -> Integer,
         name -> Text,
         email -> Text,
-        age -> Integer,
+        age -> Nullable<Integer>,
     }
 }
 

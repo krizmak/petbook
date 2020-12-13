@@ -1,0 +1,23 @@
+* GET: login
+** (email,passwd) login_button -> POST: login[set_cookie:uid] -> REDIRECT: main
+** google_login_or_register_button -> POST: login_google [set_cookie:uid] -> REDIRECT: main
+                                                               [create new user] -> GET: main
+** facebook_login_or_register_button -> POST: login_facebook [set_cookie:uid] -> REDIRECT: main
+                                                               [create new user] -> GET: main
+** register_link -> GET: register
+** reset_password_link -> GET: reset_password
+* register
+** (email,passwd,passwd2) register_button -> POST: register_normal [db: new_user] (email_with_activate_link)
+* GET: activate (activation_id) [db: activate_user]
+** login_link -> GET: login
+* GET: reset_password
+** (email) submit_button -> POST: reset_password (email_with_reset_link) -> REDIRECT: reset_pending
+* GET: change_password (change_password_id)
+** (passwd,passwd2) change_password_button -> POST: change_password [set_cookie: uid] -> REDIRECT: main
+* GET: main
+** profile_link -> GET: profile
+* profile
+** google_assign_button -> POST: [db: assign_google_id] -> REDIRECT: profile
+** facebook_assign_button -> POST: [db: assign_facebook_id] -> REDIRECT: profile
+
+

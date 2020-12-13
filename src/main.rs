@@ -11,9 +11,11 @@ use rocket::response::Redirect;
 use rocket::http::{Cookie, Cookies};
 use rocket_contrib::templates::Template;
 
+use tera::{Context};
+
 use diesel::prelude::*;
 use serde::{Deserialize};
-use serde_json::{json};
+use serde_json::{json, to_string};
 use jsonwebtoken::{encode, decode, Header, Algorithm, Validation, EncodingKey, DecodingKey, decode_header};
 use reqwest::*;
 
@@ -30,7 +32,7 @@ pub struct DbConn(SqliteConnection);
 pub struct UserCreateInfo {
     pub name: String,
     pub email: String,
-    pub age: i32,
+    pub age: Option<i32>,
     pub password: String
 }
 
@@ -43,6 +45,14 @@ struct LoginInfo {
 #[derive(FromForm, Deserialize)]
 struct GoogleLoginInfo {
     idtoken: String
+}
+
+#[derive(FromForm, Deserialize)]
+struct GoogleCreateInfo {
+    name: String,
+    email: String,
+    age: Option<i32>,
+    idtoken: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -94,16 +104,6 @@ struct FbAppToken {
 }
 
 
-// Ok("{\"data\":{
-//           \"app_id\":\"1925360770951525\",
-//           \"type\":\"USER\",
-//           \"application\":\"KrizmaTest - Test1\",
-//           \"data_access_expires_at\":1615058100,
-//           \"expires_at\":1607288400,
-//           \"is_valid\":true,
-//           \"scopes\":[\"email\",\"public_profile\"],
-//           \"user_id\":\"1172382226451995\"}}")
-
 #[derive(Debug, Deserialize)]
 struct FbClaims {
     data: FbData,
@@ -116,6 +116,13 @@ pub struct FbData {
     pub expires_at: i64, 
     pub is_valid: bool, 
     pub user_id: String,
+}
+
+#[derive(Debug, Responder)]
+pub enum LoginResponse {
+    Template(Template),
+    Redirect(Redirect),
+    Err(String),
 }
 
 const FALLBACK_TIMEOUT: Duration = Duration::from_secs(60);
@@ -206,7 +213,10 @@ fn create_user(conn: &SqliteConnection, u: &UserCreateInfo) {
 
     let auth_info: UserAuth = UserAuth{
         user_id: user_entity.id,
-        password_hash: hashpw};
+        password_hash: Some(hashpw),
+        facebook_id: None,
+        google_id: None,
+    };
     
     diesel::insert_into(userauth)
         .values(auth_info)
@@ -214,6 +224,73 @@ fn create_user(conn: &SqliteConnection, u: &UserCreateInfo) {
         .expect("Error create auth_info!");
 
 }
+
+// db functions
+fn google_create_user(conn: &SqliteConnection, u: &GoogleCreateInfo) -> UserEntity {
+    use petbook::schema::users::dsl::*;
+    use petbook::schema::users::dsl::id;
+    use petbook::schema::userauth::dsl::*;
+
+    let user: User = User {
+        name: u.name.clone(),
+        email: u.email.clone(),
+        age: u.age};
+    
+    diesel::insert_into(users)
+        .values(user)
+        .execute(conn)
+        .expect("Error creating user!");
+
+    let user_entity: UserEntity = users
+        .order(id.desc())
+        .limit(1)
+        .load::<UserEntity>(conn)
+        .expect("Error fetchin new user!")
+        .remove(0);
+
+    let token: String = u.idtoken.clone();
+    println!("token: {}", &token);
+
+    let header = decode_header(&token).expect("header error");
+    println!("{:?}",header);
+    
+    let jwkkeys = fetch_keys().expect("key_fetch error");
+    println!("google keys: {:?}", jwkkeys);
+
+    let kid = match header.kid {
+        Some(kid) => kid,
+        None => panic!("kid error")
+    };
+    
+    let key = jwkkeys.keys.get(&kid).expect("key id error");
+    println!("google keys: {:?}", key);
+    
+    let maybe_decoded_token = decode::<Claims>(&token,
+                                         &DecodingKey::from_rsa_components(&key.n, &key.e),
+                                         &Validation::new(Algorithm::RS256));
+
+    let decoded_token = match maybe_decoded_token {
+        Ok(decoded_token) => decoded_token,
+        Err(error) => panic!("Problem with decoding {:?}",error),
+    };
+    
+    let gid = decoded_token.claims.sub.clone();
+    
+    let auth_info: UserAuth = UserAuth{
+        user_id: user_entity.id,
+        password_hash: None,
+        facebook_id: None,
+        google_id: Some(gid),
+    };
+    
+    diesel::insert_into(userauth)
+        .values(auth_info)
+        .execute(conn)
+        .expect("Error create auth_info!");
+
+    return user_entity;
+}
+
 
 fn fetch_user_by_id(conn: &SqliteConnection, uid: i32) -> Option<UserEntity> {
     use petbook::schema::users::dsl::*;
@@ -256,6 +333,21 @@ fn fetch_user_auth_by_userid(conn: &SqliteConnection, uid: i32) -> Option<UserAu
     use petbook::schema::userauth::dsl::*;
     let mut matching_userauths: Vec<UserAuthEntity> = userauth
         .filter(user_id.eq(uid))
+        .load::<UserAuthEntity>(conn)
+        .expect("Error loading userauth!");
+    if matching_userauths.len() == 0 {
+        None
+    }
+    else {
+        Some(matching_userauths.remove(0))
+    }
+}
+
+fn fetch_user_auth_by_google_id(conn: &SqliteConnection, gid: &str)
+                                 -> Option<UserAuthEntity> {
+    use petbook::schema::userauth::dsl::*;
+    let mut matching_userauths: Vec<UserAuthEntity> = userauth
+        .filter(google_id.eq(gid))
         .load::<UserAuthEntity>(conn)
         .expect("Error loading userauth!");
     if matching_userauths.len() == 0 {
@@ -337,7 +429,7 @@ fn user_login_post(conn: DbConn, login_info: Form<LoginInfo>, mut cookies: Cooki
             match maybe_auth {
                 Some(auth_info) => {
                     let hash = hash_password(&login_info.password);
-                    if hash == auth_info.password_hash {
+                    if Some(hash) == auth_info.password_hash {
                         cookies.add_private(Cookie::new(
                             "user_id", user.id.to_string()));
                         Some(Redirect::to(uri!(user_main)))
@@ -352,9 +444,9 @@ fn user_login_post(conn: DbConn, login_info: Form<LoginInfo>, mut cookies: Cooki
     }
 }
 
-#[post("/user/googlelogin", data="<glogin_info>")]
+#[post("/user/login_google", data="<glogin_info>")]
 fn user_login_google(conn: DbConn, glogin_info: Form<GoogleLoginInfo>, mut cookies: Cookies)
-                     -> Result<()> {
+                     -> LoginResponse {
     let token: String = glogin_info.idtoken.clone();
     println!("token: {}", &token);
 
@@ -372,20 +464,48 @@ fn user_login_google(conn: DbConn, glogin_info: Form<GoogleLoginInfo>, mut cooki
     let key = jwkkeys.keys.get(&kid).expect("key id error");
     println!("google keys: {:?}", key);
     
-    let decoded_token = decode::<Claims>(&token,
+    let maybe_decoded_token = decode::<Claims>(&token,
                                          &DecodingKey::from_rsa_components(&key.n, &key.e),
-                                         &Validation::new(Algorithm::RS256)).expect("validation error");
+                                         &Validation::new(Algorithm::RS256));
 
-    // let decoded_token = match decoded_token {
-    //     Ok(decoded_token) => decoded_token,
-    //     Err(error) => panic!("Problem with decoding {:?}",error),
-    // };
+    let decoded_token = match maybe_decoded_token {
+        Ok(decoded_token) => decoded_token,
+        Err(error) => panic!("Problem with decoding {:?}",error),
+    };
     
-    println!("{:?}",decoded_token);
-    Ok(())
+    println!("{:?}",decoded_token.claims.sub);
+    let maybe_auth = fetch_user_auth_by_google_id(&conn, &decoded_token.claims.sub);
+    if maybe_auth.is_none() {
+        let new_user = User {
+            email : decoded_token.claims.email,
+            name : decoded_token.claims.name,
+            age : None
+        };
+        let mut context = Context::new();
+        context.insert("user", &new_user);
+        context.insert("idtoken", &token);
+        let ctx = context.into_json();
+        println!("{:?}", &ctx);
+        return LoginResponse::Template(Template::render("user_create_google", &ctx));
+    } else {
+        let user_auth = maybe_auth.unwrap();
+        cookies.add_private(Cookie::new(
+            "user_id", user_auth.user_id.to_string()));
+        return LoginResponse::Redirect(Redirect::to(uri!(user_main)));
+    };
 }
 
-#[post("/user/fblogin", data="<fblogin_info>")]
+#[post("/user/create_google", data="<gcreate_info>")]
+fn user_create_google(conn: DbConn, gcreate_info: Form<GoogleCreateInfo>, mut cookies: Cookies)
+                      -> Redirect {
+
+    let new_user = google_create_user(&conn, &gcreate_info);
+    cookies.add_private(Cookie::new(
+                            "user_id", new_user.id.to_string()));
+    Redirect::to(uri!(user_main))
+}
+
+#[post("/user/login_facebook", data="<fblogin_info>")]
 fn user_login_facebook(conn: DbConn, fblogin_info: Form<FacebookLoginInfo>, mut cookies: Cookies)
                      -> Result<()> {
     let token: String = fblogin_info.idtoken.clone();
@@ -417,6 +537,7 @@ fn main() {
                             user_login,
                             user_login_post,
                             user_login_google,
+                            user_create_google,
                             user_login_facebook,
                             user_logout
         ])
