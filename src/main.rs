@@ -4,7 +4,6 @@
 #[macro_use] extern crate rocket_contrib;
 
 use std::collections::HashMap;
-use std::time::Duration;
 
 use rocket::request::Form;
 use rocket::response::Redirect;
@@ -15,9 +14,6 @@ use tera::{Context};
 
 use diesel::prelude::*;
 use serde::{Deserialize};
-use serde_json::{json, to_string};
-use jsonwebtoken::{encode, decode, Header, Algorithm, Validation, EncodingKey, DecodingKey, decode_header};
-use reqwest::*;
 
 // use hello_rust::schema::userauth;
 // use hello_rust::schema::users;
@@ -29,17 +25,16 @@ use petbook::models::{User, UserEntity, UserAuth, UserAuthEntity};
 pub struct DbConn(SqliteConnection);
 
 #[derive(FromForm, Deserialize)]
+struct LoginInfo {
+    email: String,
+    password: String,
+}
+#[derive(FromForm, Deserialize)]
 pub struct UserCreateInfo {
     pub name: String,
     pub email: String,
     pub age: Option<i32>,
     pub password: String
-}
-
-#[derive(FromForm, Deserialize)]
-struct LoginInfo {
-    email: String,
-    password: String,
 }
 
 #[derive(FromForm, Deserialize)]
@@ -55,67 +50,17 @@ struct GoogleCreateInfo {
     idtoken: String,
 }
 
-#[derive(Debug, Deserialize)]
-pub struct Claims {
-    pub iss: String,          // The token issuer
-    pub sub: String,          // The subject the token refers to
-    pub aud: String,          // The audience the token was issued for
-    pub iat: i64,             // Issued at -- as epoch seconds
-    pub exp: i64,             // The expiry date -- as epoch seconds
-    pub email: String,
-    pub email_verified: bool,
-    pub name: String,
-    pub given_name: String,
-    pub family_name: String,
-    pub locale: String,
-    pub picture: String,
-}
-
-
-#[derive(Debug, Deserialize, Eq, PartialEq)]
-pub struct JwkKey {
-    pub e: String,
-    pub alg: String,
-    pub kty: String,
-    pub kid: String,
-    pub n: String,
-}
-
-#[derive(Debug)]
-pub struct JwkKeys {
-    pub keys: HashMap<String, JwkKey>,
-    pub validity: Duration,
-}
-
-#[derive(Debug, Deserialize)]
-struct KeyResponse {
-    keys: Vec<JwkKey>,
-}
-
 #[derive(FromForm, Deserialize)]
 struct FacebookLoginInfo {
     idtoken: String
 }
 
-#[derive(Debug, Deserialize)]
-struct FbAppToken {
-    access_token: String,
-    token_type: String
-}
-
-
-#[derive(Debug, Deserialize)]
-struct FbClaims {
-    data: FbData,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct FbData {
-    pub app_id: String, 
-    pub application: String, 
-    pub expires_at: i64, 
-    pub is_valid: bool, 
-    pub user_id: String,
+#[derive(FromForm, Deserialize)]
+struct FacebookCreateInfo {
+    name: String,
+    email: String,
+    age: Option<i32>,
+    idtoken: String,
 }
 
 #[derive(Debug, Responder)]
@@ -125,58 +70,6 @@ pub enum LoginResponse {
     Err(String),
 }
 
-const FALLBACK_TIMEOUT: Duration = Duration::from_secs(60);
-
-pub fn fetch_keys() -> Result<JwkKeys> {
-    let http_response = reqwest::blocking::get("https://www.googleapis.com/oauth2/v3/certs")?;
-    let max_age = FALLBACK_TIMEOUT;
-    let result = http_response.json::<KeyResponse>()?;
-
-    return Result::Ok(
-        JwkKeys {
-            keys: keys_to_map(result.keys),
-            validity: max_age,
-        });
-}
-
-pub fn fb_validate_token(user_token: &str) -> Result<()> {
-    let client_id = "1925360770951525";
-    let client_secret = "2d76326a95b256fb7118cb772e72e71c";
-    let app_url = "https://graph.facebook.com/oauth/access_token?client_id=".to_owned()
-        + &client_id
-        + "&client_secret="
-        + &client_secret
-        + "&grant_type=client_credentials";
-    
-    let http_response = reqwest::blocking::get(&app_url)?;
-    let result = http_response.json::<FbAppToken>()?;
-    let app_token = result.access_token;
-    
-    let user_url = "https://graph.facebook.com/debug_token?input_token=".to_owned()
-        +user_token
-        +"&access_token="
-        +&app_token;
-    let http_response = reqwest::blocking::get(&user_url)?;
-
-    let result = http_response.json::<FbClaims>()?;
-    println!("{:?}", result);
-
-
-    let profile_url = format!("https://graph.facebook.com/v9.0/{}?access_token={}&fields=name,email", result.data.user_id, user_token);
-    let http_response = reqwest::blocking::get(&profile_url)?;
-    println!("{:?}", &http_response.text());
-
-    
-    Ok(())
-}
-
-fn keys_to_map(keys: Vec<JwkKey>) -> HashMap<String, JwkKey> {
-    let mut keys_as_map = HashMap::new();
-    for key in keys {
-        keys_as_map.insert(String::clone(&key.kid), key);
-    }
-    keys_as_map
-}
 
 // helper functions
 fn hash_password(password: &String) -> String {
@@ -250,31 +143,9 @@ fn google_create_user(conn: &SqliteConnection, u: &GoogleCreateInfo) -> UserEnti
 
     let token: String = u.idtoken.clone();
     println!("token: {}", &token);
+    let claims = petbook::auth_google::decode_token(&token);
 
-    let header = decode_header(&token).expect("header error");
-    println!("{:?}",header);
-    
-    let jwkkeys = fetch_keys().expect("key_fetch error");
-    println!("google keys: {:?}", jwkkeys);
-
-    let kid = match header.kid {
-        Some(kid) => kid,
-        None => panic!("kid error")
-    };
-    
-    let key = jwkkeys.keys.get(&kid).expect("key id error");
-    println!("google keys: {:?}", key);
-    
-    let maybe_decoded_token = decode::<Claims>(&token,
-                                         &DecodingKey::from_rsa_components(&key.n, &key.e),
-                                         &Validation::new(Algorithm::RS256));
-
-    let decoded_token = match maybe_decoded_token {
-        Ok(decoded_token) => decoded_token,
-        Err(error) => panic!("Problem with decoding {:?}",error),
-    };
-    
-    let gid = decoded_token.claims.sub.clone();
+    let gid = claims.sub.clone();
     
     let auth_info: UserAuth = UserAuth{
         user_id: user_entity.id,
@@ -283,6 +154,49 @@ fn google_create_user(conn: &SqliteConnection, u: &GoogleCreateInfo) -> UserEnti
         google_id: Some(gid),
     };
     
+    diesel::insert_into(userauth)
+        .values(auth_info)
+        .execute(conn)
+        .expect("Error create auth_info!");
+
+    return user_entity;
+}
+
+fn facebook_create_user(conn: &SqliteConnection, u: &FacebookCreateInfo) -> UserEntity {
+    use petbook::schema::users::dsl::*;
+    use petbook::schema::users::dsl::id;
+    use petbook::schema::userauth::dsl::*;
+
+    let user: User = User {
+        name: u.name.clone(),
+        email: u.email.clone(),
+        age: u.age};
+
+    diesel::insert_into(users)
+        .values(user)
+        .execute(conn)
+        .expect("Error creating user!");
+
+    let user_entity: UserEntity = users
+        .order(id.desc())
+        .limit(1)
+        .load::<UserEntity>(conn)
+        .expect("Error fetching new user!")
+        .remove(0);
+
+    let token: String = u.idtoken.clone();
+    println!("token: {}", &token);
+    let user_data = petbook::auth_facebook::decode_token(&token);
+
+    let fbid = user_data.id.clone();
+
+    let auth_info: UserAuth = UserAuth{
+        user_id: user_entity.id,
+        password_hash: None,
+        facebook_id: Some(fbid),
+        google_id: None,
+    };
+
     diesel::insert_into(userauth)
         .values(auth_info)
         .execute(conn)
@@ -357,6 +271,22 @@ fn fetch_user_auth_by_google_id(conn: &SqliteConnection, gid: &str)
         Some(matching_userauths.remove(0))
     }
 }
+
+fn fetch_user_auth_by_facebook_id(conn: &SqliteConnection, fbid: &str)
+                                  -> Option<UserAuthEntity> {
+    use petbook::schema::userauth::dsl::*;
+    let mut matching_userauths: Vec<UserAuthEntity> = userauth
+        .filter(facebook_id.eq(fbid))
+        .load::<UserAuthEntity>(conn)
+        .expect("Error loading userauth!");
+    if matching_userauths.len() == 0 {
+        None
+    }
+    else {
+        Some(matching_userauths.remove(0))
+    }
+}
+
 
 // routes
 #[get("/user/create")]
@@ -450,35 +380,13 @@ fn user_login_google(conn: DbConn, glogin_info: Form<GoogleLoginInfo>, mut cooki
     let token: String = glogin_info.idtoken.clone();
     println!("token: {}", &token);
 
-    let header = decode_header(&token).expect("header error");
-    println!("{:?}",header);
-    
-    let jwkkeys = fetch_keys().expect("key_fetch error");
-    println!("google keys: {:?}", jwkkeys);
+    let claims = petbook::auth_google::decode_token(&token);
 
-    let kid = match header.kid {
-        Some(kid) => kid,
-        None => panic!("kid error")
-    };
-    
-    let key = jwkkeys.keys.get(&kid).expect("key id error");
-    println!("google keys: {:?}", key);
-    
-    let maybe_decoded_token = decode::<Claims>(&token,
-                                         &DecodingKey::from_rsa_components(&key.n, &key.e),
-                                         &Validation::new(Algorithm::RS256));
-
-    let decoded_token = match maybe_decoded_token {
-        Ok(decoded_token) => decoded_token,
-        Err(error) => panic!("Problem with decoding {:?}",error),
-    };
-    
-    println!("{:?}",decoded_token.claims.sub);
-    let maybe_auth = fetch_user_auth_by_google_id(&conn, &decoded_token.claims.sub);
+    let maybe_auth = fetch_user_auth_by_google_id(&conn, &claims.sub);
     if maybe_auth.is_none() {
         let new_user = User {
-            email : decoded_token.claims.email,
-            name : decoded_token.claims.name,
+            email : claims.email,
+            name : claims.name,
             age : None
         };
         let mut context = Context::new();
@@ -507,14 +415,31 @@ fn user_create_google(conn: DbConn, gcreate_info: Form<GoogleCreateInfo>, mut co
 
 #[post("/user/login_facebook", data="<fblogin_info>")]
 fn user_login_facebook(conn: DbConn, fblogin_info: Form<FacebookLoginInfo>, mut cookies: Cookies)
-                     -> Result<()> {
+                       -> LoginResponse {
     let token: String = fblogin_info.idtoken.clone();
     println!("token: {}", &token);
 
-    let data = fb_validate_token(&token);
-    println!("data: {:?}", &data);
+    let user_data= petbook::auth_facebook::decode_token(&token);
 
-    Ok(())
+    let maybe_auth = fetch_user_auth_by_facebook_id(&conn, &user_data.id);
+    if maybe_auth.is_none() {
+        let new_user = User {
+            email : user_data.email,
+            name : user_data.name,
+            age : None
+        };
+        let mut context = Context::new();
+        context.insert("user", &new_user);
+        context.insert("idtoken", &token);
+        let ctx = context.into_json();
+        println!("{:?}", &ctx);
+        return LoginResponse::Template(Template::render("user_create_facebook", &ctx));
+    } else {
+        let user_auth = maybe_auth.unwrap();
+        cookies.add_private(Cookie::new(
+            "user_id", user_auth.user_id.to_string()));
+        return LoginResponse::Redirect(Redirect::to(uri!(user_main)));
+    };
 }
 
 
@@ -539,8 +464,18 @@ fn main() {
                             user_login_google,
                             user_create_google,
                             user_login_facebook,
+                            user_create_facebook,
                             user_logout
         ])
         .launch();
 }
 
+#[post("/user/create_facebook", data="<fbcreate_info>")]
+fn user_create_facebook(conn: DbConn, fbcreate_info: Form<FacebookCreateInfo>, mut cookies: Cookies)
+                      -> Redirect {
+
+    let new_user = facebook_create_user(&conn, &fbcreate_info);
+    cookies.add_private(Cookie::new(
+        "user_id", new_user.id.to_string()));
+    Redirect::to(uri!(user_main))
+}
