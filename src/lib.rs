@@ -5,3 +5,5 @@ pub mod schema;
 pub mod models;
 pub mod auth_google;
 pub mod auth_facebook;
+pub mod types;
+pub mod db_sqlite;

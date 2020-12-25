@@ -12,56 +12,11 @@ use rocket_contrib::templates::Template;
 
 use tera::{Context};
 
-use diesel::prelude::*;
 use serde::{Deserialize};
 
-// use hello_rust::schema::userauth;
-// use hello_rust::schema::users;
 use petbook::models::{User, UserEntity, UserAuth, UserAuthEntity};
-
-// types
-
-#[database("sqlite_database")]
-pub struct DbConn(SqliteConnection);
-
-#[derive(FromForm, Deserialize)]
-struct LoginInfo {
-    email: String,
-    password: String,
-}
-#[derive(FromForm, Deserialize)]
-pub struct UserCreateInfo {
-    pub name: String,
-    pub email: String,
-    pub age: Option<i32>,
-    pub password: String
-}
-
-#[derive(FromForm, Deserialize)]
-struct GoogleLoginInfo {
-    idtoken: String
-}
-
-#[derive(FromForm, Deserialize)]
-struct GoogleCreateInfo {
-    name: String,
-    email: String,
-    age: Option<i32>,
-    idtoken: String,
-}
-
-#[derive(FromForm, Deserialize)]
-struct FacebookLoginInfo {
-    idtoken: String
-}
-
-#[derive(FromForm, Deserialize)]
-struct FacebookCreateInfo {
-    name: String,
-    email: String,
-    age: Option<i32>,
-    idtoken: String,
-}
+use petbook::db_sqlite::*;
+use petbook::types::*;
 
 #[derive(Debug, Responder)]
 pub enum LoginResponse {
@@ -69,224 +24,6 @@ pub enum LoginResponse {
     Redirect(Redirect),
     Err(String),
 }
-
-
-// helper functions
-fn hash_password(password: &String) -> String {
-    // let mut hasher = Sha3::sha3_256();
-    // hasher.input_str(password);
-    // hasher.result_str()
-    password.clone()
-}
-
-// db functions
-fn create_user(conn: &SqliteConnection, u: &UserCreateInfo) {
-    use petbook::schema::users::dsl::*;
-    use petbook::schema::users::dsl::id;
-    use petbook::schema::userauth::dsl::*;
-
-    let user: User = User {
-        name: u.name.clone(),
-        email: u.email.clone(),
-        age: u.age};
-    
-    diesel::insert_into(users)
-        .values(user)
-        .execute(conn)
-        .expect("Error creating user!");
-
-    let user_entity: UserEntity = users
-        .order(id.desc())
-        .limit(1)
-        .load::<UserEntity>(conn)
-        .expect("Error fetchin new user!")
-        .remove(0);
-    
-    let hashpw: String = hash_password(&u.password);
-
-    let auth_info: UserAuth = UserAuth{
-        user_id: user_entity.id,
-        password_hash: Some(hashpw),
-        facebook_id: None,
-        google_id: None,
-    };
-    
-    diesel::insert_into(userauth)
-        .values(auth_info)
-        .execute(conn)
-        .expect("Error create auth_info!");
-
-}
-
-// db functions
-fn google_create_user(conn: &SqliteConnection, u: &GoogleCreateInfo) -> UserEntity {
-    use petbook::schema::users::dsl::*;
-    use petbook::schema::users::dsl::id;
-    use petbook::schema::userauth::dsl::*;
-
-    let user: User = User {
-        name: u.name.clone(),
-        email: u.email.clone(),
-        age: u.age};
-    
-    diesel::insert_into(users)
-        .values(user)
-        .execute(conn)
-        .expect("Error creating user!");
-
-    let user_entity: UserEntity = users
-        .order(id.desc())
-        .limit(1)
-        .load::<UserEntity>(conn)
-        .expect("Error fetchin new user!")
-        .remove(0);
-
-    let token: String = u.idtoken.clone();
-    println!("token: {}", &token);
-    let claims = petbook::auth_google::decode_token(&token);
-
-    let gid = claims.sub.clone();
-    
-    let auth_info: UserAuth = UserAuth{
-        user_id: user_entity.id,
-        password_hash: None,
-        facebook_id: None,
-        google_id: Some(gid),
-    };
-    
-    diesel::insert_into(userauth)
-        .values(auth_info)
-        .execute(conn)
-        .expect("Error create auth_info!");
-
-    return user_entity;
-}
-
-fn facebook_create_user(conn: &SqliteConnection, u: &FacebookCreateInfo) -> UserEntity {
-    use petbook::schema::users::dsl::*;
-    use petbook::schema::users::dsl::id;
-    use petbook::schema::userauth::dsl::*;
-
-    let user: User = User {
-        name: u.name.clone(),
-        email: u.email.clone(),
-        age: u.age};
-
-    diesel::insert_into(users)
-        .values(user)
-        .execute(conn)
-        .expect("Error creating user!");
-
-    let user_entity: UserEntity = users
-        .order(id.desc())
-        .limit(1)
-        .load::<UserEntity>(conn)
-        .expect("Error fetching new user!")
-        .remove(0);
-
-    let token: String = u.idtoken.clone();
-    println!("token: {}", &token);
-    let user_data = petbook::auth_facebook::decode_token(&token);
-
-    let fbid = user_data.id.clone();
-
-    let auth_info: UserAuth = UserAuth{
-        user_id: user_entity.id,
-        password_hash: None,
-        facebook_id: Some(fbid),
-        google_id: None,
-    };
-
-    diesel::insert_into(userauth)
-        .values(auth_info)
-        .execute(conn)
-        .expect("Error create auth_info!");
-
-    return user_entity;
-}
-
-
-fn fetch_user_by_id(conn: &SqliteConnection, uid: i32) -> Option<UserEntity> {
-    use petbook::schema::users::dsl::*;
-
-    let mut matching_users: Vec<UserEntity> = users
-        .filter(id.eq(uid))
-        .load::<UserEntity>(conn)
-        .expect("Error loading users!");
-    if matching_users.len() == 0 {
-        None
-    }
-    else {
-        Some(matching_users.remove(0))
-    }
-}
-
-fn fetch_user_by_email(conn: &SqliteConnection, user_email: &str) -> Option<UserEntity> {
-    use petbook::schema::users::dsl::*;
-    let mut matching_users: Vec<UserEntity> = users
-        .filter(email.eq(user_email))
-        .load::<UserEntity>(conn)
-        .expect("Error loading users!");
-    if matching_users.len() == 0 {
-        None
-    }
-    else {
-        Some(matching_users.remove(0))
-    }
-}
-
-fn fetch_all_users(conn: &SqliteConnection) -> Vec<UserEntity> {
-    use petbook::schema::users::dsl::*;
-    users
-        .order(id)
-        .load::<UserEntity>(conn)
-        .expect("Error loading users!")
-}
-
-fn fetch_user_auth_by_userid(conn: &SqliteConnection, uid: i32) -> Option<UserAuthEntity> {
-    use petbook::schema::userauth::dsl::*;
-    let mut matching_userauths: Vec<UserAuthEntity> = userauth
-        .filter(user_id.eq(uid))
-        .load::<UserAuthEntity>(conn)
-        .expect("Error loading userauth!");
-    if matching_userauths.len() == 0 {
-        None
-    }
-    else {
-        Some(matching_userauths.remove(0))
-    }
-}
-
-fn fetch_user_auth_by_google_id(conn: &SqliteConnection, gid: &str)
-                                 -> Option<UserAuthEntity> {
-    use petbook::schema::userauth::dsl::*;
-    let mut matching_userauths: Vec<UserAuthEntity> = userauth
-        .filter(google_id.eq(gid))
-        .load::<UserAuthEntity>(conn)
-        .expect("Error loading userauth!");
-    if matching_userauths.len() == 0 {
-        None
-    }
-    else {
-        Some(matching_userauths.remove(0))
-    }
-}
-
-fn fetch_user_auth_by_facebook_id(conn: &SqliteConnection, fbid: &str)
-                                  -> Option<UserAuthEntity> {
-    use petbook::schema::userauth::dsl::*;
-    let mut matching_userauths: Vec<UserAuthEntity> = userauth
-        .filter(facebook_id.eq(fbid))
-        .load::<UserAuthEntity>(conn)
-        .expect("Error loading userauth!");
-    if matching_userauths.len() == 0 {
-        None
-    }
-    else {
-        Some(matching_userauths.remove(0))
-    }
-}
-
 
 // routes
 #[get("/user/create")]
@@ -325,7 +62,6 @@ fn user_main(conn: DbConn, mut cookies: Cookies) -> Option<Template> {
         None => None
     }
 }
-
 
 #[get("/user/data")]
 fn user_data(conn: DbConn, mut cookies: Cookies) -> Option<Template> {
@@ -442,7 +178,15 @@ fn user_login_facebook(conn: DbConn, fblogin_info: Form<FacebookLoginInfo>, mut 
     };
 }
 
+#[post("/user/create_facebook", data="<fbcreate_info>")]
+fn user_create_facebook(conn: DbConn, fbcreate_info: Form<FacebookCreateInfo>, mut cookies: Cookies)
+                        -> Redirect {
 
+    let new_user = facebook_create_user(&conn, &fbcreate_info);
+    cookies.add_private(Cookie::new(
+        "user_id", new_user.id.to_string()));
+    Redirect::to(uri!(user_main))
+}
 
 #[get("/user/logout")]
 fn user_logout(mut cookies: Cookies) -> Redirect {
@@ -470,12 +214,3 @@ fn main() {
         .launch();
 }
 
-#[post("/user/create_facebook", data="<fbcreate_info>")]
-fn user_create_facebook(conn: DbConn, fbcreate_info: Form<FacebookCreateInfo>, mut cookies: Cookies)
-                      -> Redirect {
-
-    let new_user = facebook_create_user(&conn, &fbcreate_info);
-    cookies.add_private(Cookie::new(
-        "user_id", new_user.id.to_string()));
-    Redirect::to(uri!(user_main))
-}
