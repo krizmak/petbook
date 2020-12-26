@@ -1,7 +1,6 @@
 #![feature(proc_macro_hygiene, decl_macro)]
 
 #[macro_use] extern crate rocket;
-#[macro_use] extern crate rocket_contrib;
 
 use std::collections::HashMap;
 
@@ -12,9 +11,7 @@ use rocket_contrib::templates::Template;
 
 use tera::{Context};
 
-use serde::{Deserialize};
-
-use petbook::models::{User, UserEntity, UserAuth, UserAuthEntity};
+use petbook::models::{User, UserEntity};
 use petbook::db_sqlite::*;
 use petbook::types::*;
 
@@ -48,35 +45,13 @@ fn user_add_post(conn: DbConn, user_create_info: Form<UserCreateInfo>) -> Templa
 // }
 
 #[get("/user")]
-fn user_main(conn: DbConn, mut cookies: Cookies) -> Option<Template> {
-    let maybe_usercookie = cookies.get_private("user_id");
-    match maybe_usercookie {
-        Some(usercookie) => {
-            let userid = usercookie.value().parse::<i32>().unwrap();
-            let maybe_user = fetch_user_by_id(&conn, userid);
-            match maybe_user {
-                Some(user) => {Some(Template::render("user_main", user))}
-                None => None
-            }
-        }
-        None => None
-    }
+fn user_main(user: UserEntity) -> Option<Template> {
+    Some(Template::render("user_main", user))
 }
 
 #[get("/user/data")]
-fn user_data(conn: DbConn, mut cookies: Cookies) -> Option<Template> {
-    let maybe_usercookie = cookies.get_private("user_id");
-    match maybe_usercookie {
-        Some(usercookie) => {
-            let userid = usercookie.value().parse::<i32>().unwrap();
-            let maybe_user = fetch_user_by_id(&conn, userid);
-            match maybe_user {
-                Some(user) => {Some(Template::render("user_data", user))}
-                None => None
-            }
-        }
-        None => None
-    }
+fn user_data(user: UserEntity) -> Option<Template> {
+    Some(Template::render("user_data", user))
 }
 
 #[get("/user/login")]

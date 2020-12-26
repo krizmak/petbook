@@ -1,4 +1,5 @@
 use rocket::request::FromForm;
+
 use serde::{Serialize};
 use crate::schema::users;
 use crate::schema::userauth;
@@ -39,3 +40,9 @@ pub struct UserAuthEntity {
     pub facebook_id: Option<String>,
 }
 
+#[derive(Debug)]
+pub enum UserAuthorizationError {
+    NoUserFound,
+    GoogleError,
+    FacebookError,
+}
