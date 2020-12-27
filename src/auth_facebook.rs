@@ -1,4 +1,9 @@
 use serde::{Deserialize};
+use rocket::request::{FromForm};
+
+use crate::auth::{UserAuthenticator, AuthenticationResult};
+use crate::db_sqlite::{DbConn, fetch_user_by_facebook_id};
+use crate::auth::AuthenticationResult::AuthenticatedUser;
 
 #[derive(Debug, Deserialize)]
 struct FbAppToken {
@@ -57,3 +62,20 @@ pub fn decode_token(user_token: &str) -> FbUserData {
 
     return user_data;
 }
+
+#[derive(FromForm, Deserialize)]
+pub struct FacebookLoginInfo {
+    pub idtoken: String
+}
+
+impl UserAuthenticator for FacebookLoginInfo {
+    fn authenticate(&self, db: &DbConn) -> AuthenticationResult {
+        let user_data = decode_token(&self.idtoken);
+        let maybe_user = fetch_user_by_facebook_id(&db, &user_data.id);
+        match maybe_user {
+            Some(user) => AuthenticatedUser(user),
+            None => AuthenticationResult::FailedWithEmail(user_data.email.clone())
+        }
+    }
+}
+

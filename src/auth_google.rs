@@ -1,7 +1,10 @@
 use serde::{Deserialize};
+use rocket::request::{FromForm};
 use jsonwebtoken::{decode, Algorithm, Validation, DecodingKey, decode_header};
 use std::collections::HashMap;
 use std::time::Duration;
+use crate::auth::{UserAuthenticator, AuthenticationResult};
+use crate::db_sqlite::{DbConn, fetch_user_by_google_id};
 
 
 #[derive(Debug, Deserialize)]
@@ -90,3 +93,24 @@ pub fn decode_token(token: &String) -> Claims {
     println!("{:?}",decoded_token.claims.sub);
     return decoded_token.claims;
 }
+
+#[derive(FromForm, Deserialize)]
+pub struct GoogleLoginInfo {
+    pub idtoken: String
+}
+
+impl UserAuthenticator for GoogleLoginInfo {
+    fn authenticate(&self, db: &DbConn) -> AuthenticationResult {
+        let claims = decode_token(&self.idtoken);
+        println!("Fetching user by google_id: {}", &claims.sub);
+        let maybe_user = fetch_user_by_google_id(&db, &claims.sub);
+        match maybe_user {
+            Some(user) => {
+                println!("Found user by google_id: {}", &user.email );
+                AuthenticationResult::AuthenticatedUser(user)
+            },
+            None => AuthenticationResult::FailedWithEmail(claims.email.clone())
+        }
+    }
+}
+
