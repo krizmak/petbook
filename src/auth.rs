@@ -26,6 +26,29 @@ pub fn authenticate_user<T: UserAuthenticator>(
     return result;
 }
 
+pub enum UserCreationResult {
+    User(UserEntity),
+    Error(String),
+}
+
+
+pub trait UserCreator {
+    fn create(&self, db: &DbConn) -> UserCreationResult;
+}
+
+pub fn create_user<T: UserCreator>(
+    db: DbConn,
+    create_info: &T,
+    mut cookies: Cookies
+) -> UserCreationResult {
+    let result = create_info.create(&db);
+    if let UserCreationResult::User(ref user) = result {
+        cookies.add_private(Cookie::new("user_id", user.id.to_string()));
+    }
+    return result;
+}
+
+
 impl<'a, 'r> request::FromRequest<'a, 'r> for UserEntity {
     type Error = ();
 

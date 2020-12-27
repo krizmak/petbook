@@ -1,9 +1,10 @@
 use serde::{Deserialize};
 use rocket::request::{FromForm};
 
-use crate::auth::{UserAuthenticator, AuthenticationResult};
-use crate::db_sqlite::{DbConn, fetch_user_by_email};
+use crate::auth::{UserAuthenticator, AuthenticationResult, UserCreator, UserCreationResult};
+use crate::db_sqlite::{DbConn, fetch_user_by_email, create_user};
 use crate::auth::AuthenticationResult::AuthenticatedUser;
+use crate::models::User;
 
 
 #[derive(FromForm, Deserialize)]
@@ -28,6 +29,28 @@ impl UserAuthenticator for LoginInfo {
         }
     }
 }
+
+#[derive(FromForm, Deserialize)]
+pub struct UserCreateInfo {
+    pub name: String,
+    pub email: String,
+    pub password: String
+}
+
+impl UserCreator for UserCreateInfo {
+    fn create(&self, db: &DbConn) -> UserCreationResult {
+        let user = User {
+            name: self.name.clone(),
+            email: self.email.clone(),
+            age: None,
+            password_hash: Some(hash_password(&self.password)),
+            google_id: None,
+            facebook_id: None,
+        };
+        return UserCreationResult::User(create_user(&db, &user));
+    }
+}
+
 
 // helper functions
 pub fn hash_password(password: &String) -> String {

@@ -3,8 +3,9 @@ use rocket::request::{FromForm};
 use jsonwebtoken::{decode, Algorithm, Validation, DecodingKey, decode_header};
 use std::collections::HashMap;
 use std::time::Duration;
-use crate::auth::{UserAuthenticator, AuthenticationResult};
-use crate::db_sqlite::{DbConn, fetch_user_by_google_id};
+use crate::auth::{UserAuthenticator, AuthenticationResult, UserCreator, UserCreationResult};
+use crate::db_sqlite::{DbConn, fetch_user_by_google_id, create_user};
+use crate::models::User;
 
 
 #[derive(Debug, Deserialize)]
@@ -114,3 +115,24 @@ impl UserAuthenticator for GoogleLoginInfo {
     }
 }
 
+#[derive(FromForm, Deserialize)]
+pub struct GoogleCreateInfo {
+    pub name: String,
+    pub email: String,
+    pub idtoken: String,
+}
+
+impl UserCreator for GoogleCreateInfo {
+    fn create(&self, db: &DbConn) -> UserCreationResult {
+        let google_user_data = decode_token(&self.idtoken);
+        let user = User {
+            name: self.name.clone(),
+            email: self.email.clone(),
+            age: None,
+            password_hash: None,
+            google_id: Some(google_user_data.sub.clone()),
+            facebook_id: None,
+        };
+        return UserCreationResult::User(create_user(&db, &user));
+    }
+}

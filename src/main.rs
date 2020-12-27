@@ -13,13 +13,12 @@ use rocket_contrib::templates::Template;
 use tera::Context;
 
 use petbook::db_sqlite::*;
-use petbook::models::{User, UserEntity};
-use petbook::types::*;
-use petbook::auth_password::{hash_password, LoginInfo};
+use petbook::models::{UserEntity};
 use petbook::auth::AuthenticationResult::AuthenticatedUser;
 use petbook::auth::AuthenticationResult;
-use petbook::auth_facebook::FacebookLoginInfo;
-use petbook::auth_google::GoogleLoginInfo;
+use petbook::auth_password::{LoginInfo, UserCreateInfo};
+use petbook::auth_facebook::{FacebookLoginInfo, FacebookCreateInfo};
+use petbook::auth_google::{GoogleLoginInfo, GoogleCreateInfo};
 
 #[derive(Debug, Responder)]
 pub enum LoginResponse {
@@ -36,17 +35,9 @@ fn user_add() -> Template {
 }
 
 #[post("/user/create", data = "<user_create_info>")]
-fn user_add_post(conn: DbConn, user_create_info: Form<UserCreateInfo>) -> Template {
+fn user_add_post(db: DbConn, user_create_info: Form<UserCreateInfo>, cookies: Cookies) -> Template {
+    petbook::auth::create_user(db, &user_create_info.into_inner(), cookies);
     let context: HashMap<&str, &str> = HashMap::new();
-    let user = User {
-        name: user_create_info.name.clone(),
-        email: user_create_info.email.clone(),
-        age: None,
-        password_hash: Some(hash_password(&user_create_info.password)),
-        google_id: None,
-        facebook_id: None,
-    };
-    create_user(&conn, &user);
     Template::render("user_create_suc", &context)
 }
 
@@ -109,19 +100,9 @@ fn user_login_google(
     }
 }
 
-#[post("/user/create_google", data = "<gcreate_info>")]
-fn user_create_google(conn: DbConn, gcreate_info: Form<GoogleCreateInfo>, mut cookies: Cookies) -> Redirect {
-    let google_user_data = petbook::auth_google::decode_token(&gcreate_info.idtoken);
-    let user = User {
-        name: gcreate_info.name.clone(),
-        email: gcreate_info.email.clone(),
-        age: None,
-        password_hash: None,
-        google_id: Some(google_user_data.sub.clone()),
-        facebook_id: None,
-    };
-    let new_user = create_user(&conn, &user);
-    cookies.add_private(Cookie::new("user_id", new_user.id.to_string()));
+#[post("/user/create_google", data = "<user_create_info>")]
+fn user_create_google(db: DbConn, user_create_info: Form<GoogleCreateInfo>, cookies: Cookies) -> Redirect {
+    petbook::auth::create_user(db, &user_create_info.into_inner(), cookies);
     Redirect::to(uri!(user_main))
 }
 
@@ -146,23 +127,13 @@ fn user_login_facebook(
     }
 }
 
-#[post("/user/create_facebook", data = "<fbcreate_info>")]
+#[post("/user/create_facebook", data = "<user_create_info>")]
 fn user_create_facebook(
-    conn: DbConn,
-    fbcreate_info: Form<FacebookCreateInfo>,
-    mut cookies: Cookies,
+    db: DbConn,
+    user_create_info: Form<FacebookCreateInfo>,
+    cookies: Cookies,
 ) -> Redirect {
-    let user_data = petbook::auth_facebook::decode_token(&fbcreate_info.idtoken);
-    let user = User {
-        name: fbcreate_info.name.clone(),
-        email: fbcreate_info.email.clone(),
-        age: None,
-        password_hash: None,
-        google_id: None,
-        facebook_id: Some(user_data.id.clone()),
-    };
-    let new_user = create_user(&conn, &user);
-    cookies.add_private(Cookie::new("user_id", new_user.id.to_string()));
+    petbook::auth::create_user(db, &user_create_info.into_inner(), cookies);
     Redirect::to(uri!(user_main))
 }
 
