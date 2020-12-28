@@ -2,7 +2,7 @@ use serde::{Deserialize};
 use rocket::request::{FromForm};
 
 use crate::auth::{UserAuthenticator, AuthenticationResult, UserCreator, UserCreationResult};
-use crate::db_sqlite::{DbConn, fetch_user_by_email, create_user};
+use crate::db_sqlite::DbConn;
 use crate::auth::AuthenticationResult::AuthenticatedUser;
 use crate::models::User;
 
@@ -15,7 +15,7 @@ pub struct LoginInfo {
 
 impl UserAuthenticator for LoginInfo {
     fn authenticate(&self, db: &DbConn) -> AuthenticationResult {
-        let maybe_user = fetch_user_by_email(db, &self.email);
+        let maybe_user = db.get_user_by_email(&self.email);
         match maybe_user {
             Some(user) => {
                 let hash = hash_password(&self.password);
@@ -47,7 +47,7 @@ impl UserCreator for UserCreateInfo {
             google_id: None,
             facebook_id: None,
         };
-        return UserCreationResult::User(create_user(&db, &user));
+        return UserCreationResult::User(db.insert_user(&user));
     }
 }
 

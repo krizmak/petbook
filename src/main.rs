@@ -12,7 +12,7 @@ use rocket_contrib::templates::Template;
 
 use tera::Context;
 
-use petbook::db_sqlite::*;
+use petbook::db_sqlite::DbConn;
 use petbook::models::{UserEntity};
 use petbook::auth::AuthenticationResult::AuthenticatedUser;
 use petbook::auth::AuthenticationResult;

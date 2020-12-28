@@ -57,7 +57,7 @@ impl<'a, 'r> request::FromRequest<'a, 'r> for UserEntity {
         request.cookies()
             .get_private("user_id")
             .and_then(|cookie| cookie.value().parse().ok())
-            .and_then(|id| crate::db_sqlite::fetch_user_by_id(&db, id))
+            .and_then(|id| db.get_user_by_id(id))
             .or_forward(())
     }
 

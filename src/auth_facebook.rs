@@ -2,7 +2,7 @@ use serde::{Deserialize};
 use rocket::request::{FromForm};
 
 use crate::auth::{UserAuthenticator, AuthenticationResult, UserCreator, UserCreationResult};
-use crate::db_sqlite::{DbConn, fetch_user_by_facebook_id, create_user};
+use crate::db_sqlite::DbConn;
 use crate::auth::AuthenticationResult::AuthenticatedUser;
 use crate::models::User;
 
@@ -72,7 +72,7 @@ pub struct FacebookLoginInfo {
 impl UserAuthenticator for FacebookLoginInfo {
     fn authenticate(&self, db: &DbConn) -> AuthenticationResult {
         let user_data = decode_token(&self.idtoken);
-        let maybe_user = fetch_user_by_facebook_id(&db, &user_data.id);
+        let maybe_user = db.get_user_by_facebook_id(&user_data.id);
         match maybe_user {
             Some(user) => AuthenticatedUser(user),
             None => AuthenticationResult::FailedWithEmail(user_data.email.clone())
@@ -99,6 +99,6 @@ impl UserCreator for FacebookCreateInfo {
             google_id: None,
             facebook_id: Some(facebook_user_data.id.clone()),
         };
-        return UserCreationResult::User(create_user(&db, &user));
+        return UserCreationResult::User(db.insert_user(&user));
     }
 }

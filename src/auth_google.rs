@@ -4,7 +4,7 @@ use jsonwebtoken::{decode, Algorithm, Validation, DecodingKey, decode_header};
 use std::collections::HashMap;
 use std::time::Duration;
 use crate::auth::{UserAuthenticator, AuthenticationResult, UserCreator, UserCreationResult};
-use crate::db_sqlite::{DbConn, fetch_user_by_google_id, create_user};
+use crate::db_sqlite::DbConn;
 use crate::models::User;
 
 
@@ -104,7 +104,7 @@ impl UserAuthenticator for GoogleLoginInfo {
     fn authenticate(&self, db: &DbConn) -> AuthenticationResult {
         let claims = decode_token(&self.idtoken);
         println!("Fetching user by google_id: {}", &claims.sub);
-        let maybe_user = fetch_user_by_google_id(&db, &claims.sub);
+        let maybe_user = db.get_user_by_google_id(&claims.sub);
         match maybe_user {
             Some(user) => {
                 println!("Found user by google_id: {}", &user.email );
@@ -133,6 +133,6 @@ impl UserCreator for GoogleCreateInfo {
             google_id: Some(google_user_data.sub.clone()),
             facebook_id: None,
         };
-        return UserCreationResult::User(create_user(&db, &user));
+        return UserCreationResult::User(db.insert_user(&user));
     }
 }
