@@ -1,10 +1,9 @@
 use serde::{Deserialize};
 use rocket::request::{FromForm};
 
-use crate::auth::{UserAuthenticator, AuthenticationResult, UserCreator, UserCreationResult};
+use crate::auth::{UserAuthenticator, UserCreator, AuthenticationError, UserCreationError};
 use crate::db_sqlite::DbConn;
-use crate::auth::AuthenticationResult::AuthenticatedUser;
-use crate::models::User;
+use crate::models::{User, UserEntity};
 
 #[derive(Debug, Deserialize)]
 struct FbAppToken {
@@ -33,7 +32,14 @@ pub struct FbUserData {
     pub id: String,
 }
 
-pub fn decode_token(user_token: &str) -> FbUserData {
+pub enum Error {
+    AppTokenError,
+    UserTokenError,
+    UserProfileError,
+}
+
+pub fn decode_token(user_token: &str) -> Result<FbUserData, Error> {
+    // 1. step: request app token
     let client_id = "1925360770951525";
     let client_secret = "2d76326a95b256fb7118cb772e72e71c";
     let app_url = "https://graph.facebook.com/oauth/access_token?client_id=".to_owned()
@@ -42,26 +48,32 @@ pub fn decode_token(user_token: &str) -> FbUserData {
         + &client_secret
         + "&grant_type=client_credentials";
 
-    let http_response = reqwest::blocking::get(&app_url).expect("app http request error");
-    let result = http_response.json::<FbAppToken>().expect("app http response error");
+    let http_response = reqwest::blocking::get(&app_url)
+        .map_err(|_| Error::AppTokenError)?;
+    let result = http_response.json::<FbAppToken>()
+        .map_err(|_| Error::AppTokenError)?;
     let app_token = result.access_token;
 
+    // 2. step: request user token
     let user_url = "https://graph.facebook.com/debug_token?input_token=".to_owned()
         +user_token
         +"&access_token="
         +&app_token;
-    let http_response = reqwest::blocking::get(&user_url).expect("app http request error");
+    let http_response = reqwest::blocking::get(&user_url)
+        .map_err(|_| Error::UserTokenError)?;
+    let result = http_response.json::<Claims>()
+        .map_err(|_| Error::UserTokenError)?;
 
-    let result = http_response.json::<Claims>().expect("app http response error");
-    println!("{:?}", result);
+    // 3. step: request user profile
+    let profile_url = format!("https://graph.facebook.com/v9.0/{}?access_token={}&fields=name,email",
+                              result.data.user_id,
+                              user_token);
+    let http_response = reqwest::blocking::get(&profile_url)
+        .map_err(|_| Error::UserProfileError)?;
 
+    http_response.json::<FbUserData>()
+        .map_err(|_| Error::UserProfileError)
 
-    let profile_url = format!("https://graph.facebook.com/v9.0/{}?access_token={}&fields=name,email", result.data.user_id, user_token);
-    let http_response = reqwest::blocking::get(&profile_url).expect("profile http request error");
-
-    let user_data = http_response.json::<FbUserData>().expect("profile http response error");
-
-    return user_data;
 }
 
 #[derive(FromForm, Deserialize)]
@@ -70,13 +82,15 @@ pub struct FacebookLoginInfo {
 }
 
 impl UserAuthenticator for FacebookLoginInfo {
-    fn authenticate(&self, db: &DbConn) -> AuthenticationResult {
-        let user_data = decode_token(&self.idtoken);
-        let maybe_user = db.get_user_by_facebook_id(&user_data.id);
-        match maybe_user {
-            Some(user) => AuthenticatedUser(user),
-            None => AuthenticationResult::FailedWithEmail(user_data.email.clone())
-        }
+    fn authenticate(&self, db: &DbConn) -> Result<UserEntity, AuthenticationError> {
+        let user_data = decode_token(&self.idtoken)
+            .map_err(|_| AuthenticationError::InternalError("Facebook internal error.".to_string()))?;
+
+        db.get_user_by_facebook_id(&user_data.id)
+            .map_err(|err| match err {
+                diesel::NotFound => AuthenticationError::FailedWithEmail(user_data.email.clone()),
+                _ => AuthenticationError::InternalError("Database error".to_string())
+            })
     }
 }
 
@@ -89,8 +103,9 @@ pub struct FacebookCreateInfo {
 }
 
 impl UserCreator for FacebookCreateInfo {
-    fn create(&self, db: &DbConn) -> UserCreationResult {
-        let facebook_user_data = decode_token(&self.idtoken);
+    fn create(&self, db: &DbConn) -> Result<UserEntity, UserCreationError> {
+        let facebook_user_data = decode_token(&self.idtoken)
+            .map_err(|_| UserCreationError::InternalError("Facebook error".to_owned()))?;
         let user = User {
             name: self.name.clone(),
             email: self.email.clone(),
@@ -99,6 +114,11 @@ impl UserCreator for FacebookCreateInfo {
             google_id: None,
             facebook_id: Some(facebook_user_data.id.clone()),
         };
-        return UserCreationResult::User(db.insert_user(&user));
+        db.insert_user(&user)
+            .map_err(|err| match err {
+                diesel::result::Error::DatabaseError(diesel::result::DatabaseErrorKind::UniqueViolation, _) =>
+                    UserCreationError::FailedAlreadyExists,
+                _ => UserCreationError::InternalError("Database error".to_string())
+            })
     }
 }

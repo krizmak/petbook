@@ -3,9 +3,9 @@ use rocket::request::{FromForm};
 use jsonwebtoken::{decode, Algorithm, Validation, DecodingKey, decode_header};
 use std::collections::HashMap;
 use std::time::Duration;
-use crate::auth::{UserAuthenticator, AuthenticationResult, UserCreator, UserCreationResult};
+use crate::auth::{UserAuthenticator, AuthenticationError, UserCreator, UserCreationError};
 use crate::db_sqlite::DbConn;
-use crate::models::User;
+use crate::models::{User, UserEntity};
 
 
 #[derive(Debug, Deserialize)]
@@ -47,16 +47,20 @@ struct KeyResponse {
 
 const FALLBACK_TIMEOUT: Duration = Duration::from_secs(60);
 
+pub enum GoogleErrors {
+    HeaderParseError,
+    KeyFetchError,
+    DecodeError
+}
+
 fn fetch_keys() -> reqwest::Result<JwkKeys> {
     let http_response = reqwest::blocking::get("https://www.googleapis.com/oauth2/v3/certs")?;
     let max_age = FALLBACK_TIMEOUT;
-    let result = http_response.json::<KeyResponse>()?;
-
-    return reqwest::Result::Ok(
-        JwkKeys {
+    http_response.json::<KeyResponse>()
+        .map(|result| JwkKeys {
             keys: keys_to_map(result.keys),
             validity: max_age,
-        });
+        })
 }
 
 fn keys_to_map(keys: Vec<JwkKey>) -> HashMap<String, JwkKey> {
@@ -67,32 +71,20 @@ fn keys_to_map(keys: Vec<JwkKey>) -> HashMap<String, JwkKey> {
     keys_as_map
 }
 
-pub fn decode_token(token: &String) -> Claims {
-    let header = decode_header(&token).expect("header error");
-    println!("{:?}",header);
+pub fn decode_token(token: &String) -> Result<Claims, GoogleErrors> {
+    let header = decode_header(&token).map_err(|_| GoogleErrors::HeaderParseError)?;
+    let kid = header.kid.ok_or_else(|| GoogleErrors::HeaderParseError)?;
 
-    let jwkkeys = fetch_keys().expect("key_fetch error");
-    println!("google keys: {:?}", jwkkeys);
+    let jwkkeys = fetch_keys().map_err(|_| GoogleErrors::KeyFetchError)?;
+    let key = jwkkeys.keys.get(&kid).ok_or_else(|| GoogleErrors::KeyFetchError)?;
 
-    let kid = match header.kid {
-        Some(kid) => kid,
-        None => panic!("kid error")
-    };
+    let decoded_token =
+        decode::<Claims>(&token,
+                         &DecodingKey::from_rsa_components(&key.n, &key.e),
+                         &Validation::new(Algorithm::RS256))
+            .map_err(|_| GoogleErrors::DecodeError)?;
 
-    let key = jwkkeys.keys.get(&kid).expect("key id error");
-    println!("google keys: {:?}", key);
-
-    let maybe_decoded_token = decode::<Claims>(&token,
-                                               &DecodingKey::from_rsa_components(&key.n, &key.e),
-                                               &Validation::new(Algorithm::RS256));
-
-    let decoded_token = match maybe_decoded_token {
-        Ok(decoded_token) => decoded_token,
-        Err(error) => panic!("Problem with decoding {:?}",error),
-    };
-
-    println!("{:?}",decoded_token.claims.sub);
-    return decoded_token.claims;
+    Ok(decoded_token.claims)
 }
 
 #[derive(FromForm, Deserialize)]
@@ -101,17 +93,15 @@ pub struct GoogleLoginInfo {
 }
 
 impl UserAuthenticator for GoogleLoginInfo {
-    fn authenticate(&self, db: &DbConn) -> AuthenticationResult {
-        let claims = decode_token(&self.idtoken);
-        println!("Fetching user by google_id: {}", &claims.sub);
-        let maybe_user = db.get_user_by_google_id(&claims.sub);
-        match maybe_user {
-            Some(user) => {
-                println!("Found user by google_id: {}", &user.email );
-                AuthenticationResult::AuthenticatedUser(user)
-            },
-            None => AuthenticationResult::FailedWithEmail(claims.email.clone())
-        }
+    fn authenticate(&self, db: &DbConn) -> Result<UserEntity, AuthenticationError> {
+        let claims = decode_token(&self.idtoken)
+            .map_err(|_| AuthenticationError::InternalError("Google internal error".to_string()))?;
+
+        db.get_user_by_google_id(&claims.sub)
+            .map_err(|err| match err {
+                diesel::NotFound => AuthenticationError::FailedWithEmail(claims.email.clone()),
+                _ => AuthenticationError::InternalError("Database error".to_string())
+            })
     }
 }
 
@@ -123,8 +113,9 @@ pub struct GoogleCreateInfo {
 }
 
 impl UserCreator for GoogleCreateInfo {
-    fn create(&self, db: &DbConn) -> UserCreationResult {
-        let google_user_data = decode_token(&self.idtoken);
+    fn create(&self, db: &DbConn) -> Result<UserEntity, UserCreationError> {
+        let google_user_data = decode_token(&self.idtoken)
+            .map_err(|_| UserCreationError::InternalError("Google error".to_owned()))?;
         let user = User {
             name: self.name.clone(),
             email: self.email.clone(),
@@ -133,6 +124,12 @@ impl UserCreator for GoogleCreateInfo {
             google_id: Some(google_user_data.sub.clone()),
             facebook_id: None,
         };
-        return UserCreationResult::User(db.insert_user(&user));
+        db.insert_user(&user)
+            .map_err(|err| match err {
+                diesel::result::Error::DatabaseError(diesel::result::DatabaseErrorKind::UniqueViolation, _) =>
+                    UserCreationError::FailedAlreadyExists,
+                _ => UserCreationError::InternalError("Database error".to_string())
+            })
+
     }
 }

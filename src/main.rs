@@ -14,11 +14,10 @@ use tera::Context;
 
 use petbook::db_sqlite::DbConn;
 use petbook::models::{UserEntity};
-use petbook::auth::AuthenticationResult::AuthenticatedUser;
-use petbook::auth::AuthenticationResult;
 use petbook::auth_password::{LoginInfo, UserCreateInfo};
 use petbook::auth_facebook::{FacebookLoginInfo, FacebookCreateInfo};
 use petbook::auth_google::{GoogleLoginInfo, GoogleCreateInfo};
+use petbook::auth::{AuthenticationError, UserCreationError};
 
 #[derive(Debug, Responder)]
 pub enum LoginResponse {
@@ -35,10 +34,11 @@ fn user_add() -> Template {
 }
 
 #[post("/user/create", data = "<user_create_info>")]
-fn user_add_post(db: DbConn, user_create_info: Form<UserCreateInfo>, cookies: Cookies) -> Template {
-    petbook::auth::create_user(db, &user_create_info.into_inner(), cookies);
+fn user_add_post(db: DbConn, user_create_info: Form<UserCreateInfo>, cookies: Cookies)
+    -> Result<Template, UserCreationError> {
+    petbook::auth::create_user(db, &user_create_info.into_inner(), cookies)?;
     let context: HashMap<&str, &str> = HashMap::new();
-    Template::render("user_create_suc", &context)
+    Ok(Template::render("user_create_suc", &context))
 }
 
 // #[get("/users")]
@@ -73,9 +73,10 @@ fn user_login_post(
 ) -> LoginResponse {
     let authentication_result = petbook::auth::authenticate_user(db, &login_info.into_inner(),cookies);
     match authentication_result {
-        AuthenticatedUser(_) => LoginResponse::Redirect(Redirect::to(uri!(user_main))),
-        AuthenticationResult::FailedWithEmail(email) => LoginResponse::Err(format!("Wrong login info for: {}",email)),
-        AuthenticationResult::Error(msg) => LoginResponse::Err(format!("Error during login: {}", msg))
+        Ok(_) => LoginResponse::Redirect(Redirect::to(uri!(user_main))),
+        Err(AuthenticationError::Failed) => LoginResponse::Redirect(Redirect::to(uri!(user_login))),
+        Err(AuthenticationError::FailedWithEmail(email)) => LoginResponse::Err(format!("Wrong login info for: {}",email)),
+        Err(AuthenticationError::InternalError(msg)) => LoginResponse::Err(format!("Error during login: {}", msg))
     }
 }
 
@@ -88,22 +89,24 @@ fn user_login_google(
     let login_info_inner = login_info.into_inner();
     let authentication_result = petbook::auth::authenticate_user(db, &login_info_inner, cookies);
     match authentication_result {
-        AuthenticatedUser(_) => LoginResponse::Redirect(Redirect::to(uri!(user_data))),
-        AuthenticationResult::FailedWithEmail(email) => {
+        Ok(_) => LoginResponse::Redirect(Redirect::to(uri!(user_data))),
+        Err(AuthenticationError::FailedWithEmail(email)) => {
             let mut context = Context::new();
             context.insert("email", &email);
             context.insert("idtoken", &login_info_inner.idtoken);
             let ctx = context.into_json();
             return LoginResponse::Template(Template::render("user_create_google", &ctx));
         }
-        AuthenticationResult::Error(msg) => LoginResponse::Err(format!("Error during glogin: {}", msg))
+        Err(AuthenticationError::InternalError(msg)) => LoginResponse::Err(format!("Error during glogin: {}", msg)),
+        Err(_) => LoginResponse::Err(format!("Unknown error during login"))
     }
 }
 
 #[post("/user/create_google", data = "<user_create_info>")]
-fn user_create_google(db: DbConn, user_create_info: Form<GoogleCreateInfo>, cookies: Cookies) -> Redirect {
-    petbook::auth::create_user(db, &user_create_info.into_inner(), cookies);
-    Redirect::to(uri!(user_main))
+fn user_create_google(db: DbConn, user_create_info: Form<GoogleCreateInfo>, cookies: Cookies)
+    -> Result<Redirect, UserCreationError> {
+    petbook::auth::create_user(db, &user_create_info.into_inner(), cookies)?;
+    Ok(Redirect::to(uri!(user_main)))
 }
 
 #[post("/user/login_facebook", data = "<fblogin_info>")]
@@ -115,15 +118,16 @@ fn user_login_facebook(
     let login_info_inner = fblogin_info.into_inner();
     let authentication_result = petbook::auth::authenticate_user(db, &login_info_inner, cookies);
     match authentication_result {
-        AuthenticatedUser(_) => LoginResponse::Redirect(Redirect::to(uri!(user_data))),
-        AuthenticationResult::FailedWithEmail(email) => {
+        Ok(_) => LoginResponse::Redirect(Redirect::to(uri!(user_data))),
+        Err(AuthenticationError::FailedWithEmail(email)) => {
             let mut context = Context::new();
             context.insert("email", &email);
             context.insert("idtoken", &login_info_inner.idtoken);
             let ctx = context.into_json();
             return LoginResponse::Template(Template::render("user_create_facebook", &ctx));
         }
-        AuthenticationResult::Error(msg) => LoginResponse::Err(format!("Error during login: {}", msg))
+        Err(AuthenticationError::InternalError(msg)) => LoginResponse::Err(format!("Error during login: {}", msg)),
+        Err(_) => LoginResponse::Err(format!("Unknown error during login"))
     }
 }
 
@@ -132,9 +136,9 @@ fn user_create_facebook(
     db: DbConn,
     user_create_info: Form<FacebookCreateInfo>,
     cookies: Cookies,
-) -> Redirect {
-    petbook::auth::create_user(db, &user_create_info.into_inner(), cookies);
-    Redirect::to(uri!(user_main))
+) -> Result<Redirect, UserCreationError> {
+    petbook::auth::create_user(db, &user_create_info.into_inner(), cookies)?;
+    Ok(Redirect::to(uri!(user_main)))
 }
 
 #[get("/user/logout")]
