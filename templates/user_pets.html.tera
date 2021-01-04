@@ -19,7 +19,7 @@
       <div class="collapse navbar-collapse" id="navbarSupportedContent">
         <ul class="navbar-nav mr-auto">
           <li class="nav-item">
-            <a class="nav-link" href="/user/pets">My pets</a>
+            <a class="nav-link" href="#">My pets</a>
           </li>
           <li class="nav-item">
             <a class="nav-link" href="/user/data">Found a pet</a>
@@ -35,6 +35,25 @@
     </nav>
 
 
+    <table class="table table-striped table-hover">
+      <tbody>
+        <tr>
+          <td><a href="/pets/1">Nina</a></td>
+          <td>
+            <button type="button" class="btn btn-primary btn-sm">New log</button>
+            <button type="button" class="btn btn-primary btn-sm">Lost</button>
+          </td>
+        </tr>
+        <tr>
+          <td><a href="#">Benji</a></td>
+          <td>
+            <button type="button" class="btn btn-primary btn-sm">New log</button>
+            <button type="button" class="btn btn-primary btn-sm">Lost</button>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+    <button type="button" class="btn btn-success">+</button>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta1/dist/js/bootstrap.bundle.min.js" integrity="sha384-ygbV9kiqUc6oa4msXn9868pTtWMgiQaeYH7/t7LECLbyPA2x65Kgf80OJFdroafW" crossorigin="anonymous"></script>
   </body>

@@ -21,3 +21,44 @@
 ** facebook_assign_button -> POST: [db: assign_facebook_id] -> REDIRECT: profile
 
 
+* Navbar
+** user main
+** my pets
+** found pet
+** lost pet
+** user profile
+** logout
+
+* Page1 - User main
+** local navbar: - 
+** favorite pet
+
+* Page2 - My pets
+** local navbar: - 
+** list of pets -> link to pet page|button: new log entry| button: lost| button: favorite
+** Button: add new pet
+
+* Page2/1 - Pet's profile
+** Image
+** type (dog/cat)
+** breed
+** color
+** weight
+** size
+** gender
+** date of birth
+** registration number
+** description
+** address (default: same as the user)
+** button: delete pet
+** button: set as favorite
+
+* Page 2/2- Pet's logbook
+** list of log entries -> link to entry details
+** button: add new entry
+
+* Page 2/3 - Pet's logbook new entry:
+** type: lost|birth|purchase pet|death|vaccination|vet visit|regular pills|irregular pills|food|purchase stuff|found|walk|measurement
+
+** lost
+*** date, location_address, location_gps, description, image (set default image)

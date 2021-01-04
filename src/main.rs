@@ -9,6 +9,7 @@ use rocket::http::{Cookie, Cookies};
 use rocket::request::Form;
 use rocket::response::Redirect;
 use rocket_contrib::templates::Template;
+use rocket_contrib::serve::StaticFiles;
 
 use tera::Context;
 
@@ -89,7 +90,7 @@ fn user_login_google(
     let login_info_inner = login_info.into_inner();
     let authentication_result = petbook::auth::authenticate_user(db, &login_info_inner, cookies);
     match authentication_result {
-        Ok(_) => LoginResponse::Redirect(Redirect::to(uri!(user_data))),
+        Ok(_) => LoginResponse::Redirect(Redirect::to(uri!(user_main))),
         Err(AuthenticationError::FailedWithEmail(email)) => {
             let mut context = Context::new();
             context.insert("email", &email);
@@ -118,7 +119,7 @@ fn user_login_facebook(
     let login_info_inner = fblogin_info.into_inner();
     let authentication_result = petbook::auth::authenticate_user(db, &login_info_inner, cookies);
     match authentication_result {
-        Ok(_) => LoginResponse::Redirect(Redirect::to(uri!(user_data))),
+        Ok(_) => LoginResponse::Redirect(Redirect::to(uri!(user_main))),
         Err(AuthenticationError::FailedWithEmail(email)) => {
             let mut context = Context::new();
             context.insert("email", &email);
@@ -147,11 +148,22 @@ fn user_logout(mut cookies: Cookies) -> Redirect {
     Redirect::to(uri!(user_login))
 }
 
+#[get("/user/pets")]
+fn user_pets(user: UserEntity) -> Option<Template> {
+    Some(Template::render("user_pets", user))
+}
+
+#[get("/pets/<id>")]
+fn pet_data(id: u32, user: UserEntity) -> Option<Template> {
+    Some(Template::render("pet_data", user))
+}
+
 // main
 fn main() {
     rocket::ignite()
         .attach(DbConn::fairing())
         .attach(Template::fairing())
+        .mount("/static",StaticFiles::from("static"))
         .mount(
             "/",
             routes![
@@ -165,7 +177,9 @@ fn main() {
                 user_create_google,
                 user_login_facebook,
                 user_create_facebook,
-                user_logout
+                user_logout,
+                user_pets,
+                pet_data
             ],
         )
         .launch();
