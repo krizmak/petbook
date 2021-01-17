@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <title>{{ name }}</title>
+</head>
+<body>
+  <h1>{{ name }}</h1>
+  <ul>
+    <li>{{ email }}</li>
+    <li>{{ age }}</li>
+      
+  </ul>
+  <a href="/user">Back</a>
+</body>
+</html>

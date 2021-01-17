@@ -4,6 +4,10 @@ use crate::models::UserEntity;
 use crate::db_sqlite::DbConn;
 use rocket::http::{Cookies, Cookie};
 
+pub mod facebook;
+pub mod google;
+pub mod password;
+
 pub enum AuthenticationError {
     FailedWithEmail(String),
     Failed,

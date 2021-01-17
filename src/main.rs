@@ -15,9 +15,9 @@ use tera::Context;
 
 use petbook::db_sqlite::DbConn;
 use petbook::models::{UserEntity};
-use petbook::auth_password::{LoginInfo, UserCreateInfo};
-use petbook::auth_facebook::{FacebookLoginInfo, FacebookCreateInfo};
-use petbook::auth_google::{GoogleLoginInfo, GoogleCreateInfo};
+use petbook::auth::password::{LoginInfo, UserCreateInfo};
+use petbook::auth::facebook::{FacebookLoginInfo, FacebookCreateInfo};
+use petbook::auth::google::{GoogleLoginInfo, GoogleCreateInfo};
 use petbook::auth::{AuthenticationError, UserCreationError};
 
 #[derive(Debug, Responder)]
@@ -31,7 +31,7 @@ pub enum LoginResponse {
 #[get("/user/create")]
 fn user_add() -> Template {
     let context: HashMap<&str, &str> = HashMap::new();
-    Template::render("user_create", &context)
+    Template::render("user/user_create", &context)
 }
 
 #[post("/user/create", data = "<user_create_info>")]
@@ -39,7 +39,7 @@ fn user_add_post(db: DbConn, user_create_info: Form<UserCreateInfo>, cookies: Co
     -> Result<Template, UserCreationError> {
     petbook::auth::create_user(db, &user_create_info.into_inner(), cookies)?;
     let context: HashMap<&str, &str> = HashMap::new();
-    Ok(Template::render("user_create_suc", &context))
+    Ok(Template::render("user/user_create_suc", &context))
 }
 
 // #[get("/users")]
@@ -52,18 +52,18 @@ fn user_add_post(db: DbConn, user_create_info: Form<UserCreateInfo>, cookies: Co
 
 #[get("/user")]
 fn user_main(user: UserEntity) -> Option<Template> {
-    Some(Template::render("user_main", user))
+    Some(Template::render("user/user_main", user))
 }
 
 #[get("/user/data")]
 fn user_data(user: UserEntity) -> Option<Template> {
-    Some(Template::render("user_data", user))
+    Some(Template::render("user/user_data", user))
 }
 
 #[get("/user/login")]
 fn user_login() -> Template {
     let context: HashMap<&str, &str> = HashMap::new();
-    Template::render("user_login", &context)
+    Template::render("user/user_login", &context)
 }
 
 #[post("/user/login", data = "<login_info>")]
@@ -96,7 +96,7 @@ fn user_login_google(
             context.insert("email", &email);
             context.insert("idtoken", &login_info_inner.idtoken);
             let ctx = context.into_json();
-            return LoginResponse::Template(Template::render("user_create_google", &ctx));
+            return LoginResponse::Template(Template::render("user/user_create_google", &ctx));
         }
         Err(AuthenticationError::InternalError(msg)) => LoginResponse::Err(format!("Error during glogin: {}", msg)),
         Err(_) => LoginResponse::Err(format!("Unknown error during login"))
@@ -125,7 +125,7 @@ fn user_login_facebook(
             context.insert("email", &email);
             context.insert("idtoken", &login_info_inner.idtoken);
             let ctx = context.into_json();
-            return LoginResponse::Template(Template::render("user_create_facebook", &ctx));
+            return LoginResponse::Template(Template::render("user/user_create_facebook", &ctx));
         }
         Err(AuthenticationError::InternalError(msg)) => LoginResponse::Err(format!("Error during login: {}", msg)),
         Err(_) => LoginResponse::Err(format!("Unknown error during login"))
