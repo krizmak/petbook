@@ -118,11 +118,15 @@ impl UserCreator for GoogleCreateInfo {
             .map_err(|_| UserCreationError::InternalError("Google error".to_owned()))?;
         let user = User {
             name: self.name.clone(),
+            informal_name: None,
+            title: None,
             email: self.email.clone(),
-            age: None,
+            address_id: None,
+            phone: None,
             password_hash: None,
             google_id: Some(google_user_data.sub.clone()),
             facebook_id: None,
+            disabled: None
         };
         db.insert_user(&user)
             .map_err(|err| match err {

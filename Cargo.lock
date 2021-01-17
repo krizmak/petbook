@@ -1359,6 +1359,7 @@ dependencies = [
 name = "petbook"
 version = "0.1.0"
 dependencies = [
+ "chrono",
  "diesel",
  "ferris-says",
  "jsonwebtoken",

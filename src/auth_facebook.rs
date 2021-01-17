@@ -108,11 +108,15 @@ impl UserCreator for FacebookCreateInfo {
             .map_err(|_| UserCreationError::InternalError("Facebook error".to_owned()))?;
         let user = User {
             name: self.name.clone(),
+            informal_name: None,
+            title: None,
             email: self.email.clone(),
-            age: None,
+            address_id: None,
+            phone: None,
             password_hash: None,
             google_id: None,
             facebook_id: Some(facebook_user_data.id.clone()),
+            disabled: None
         };
         db.insert_user(&user)
             .map_err(|err| match err {

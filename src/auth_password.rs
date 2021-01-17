@@ -39,11 +39,15 @@ impl UserCreator for UserCreateInfo {
     fn create(&self, db: &DbConn) -> Result<UserEntity, UserCreationError> {
         let user = User {
             name: self.name.clone(),
+            informal_name : None,
+            title: None,
             email: self.email.clone(),
-            age: None,
+            address_id: None,
+            phone: None,
             password_hash: Some(hash_password(&self.password)),
             google_id: None,
             facebook_id: None,
+            disabled: None
         };
         db.insert_user(&user)
             .map_err(|err| match err {
