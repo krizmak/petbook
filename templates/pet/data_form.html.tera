@@ -1,0 +1,49 @@
+<div class="mb-3">
+    <label for="name" class="form-label">Name</label>
+    <input type="text" class="form-control" id="name" aria-describedby="nameHelp" value="Nina"/>
+</div>
+<div class="mb-3">
+    <label for="type" class="form-label">Type</label>
+    <select class="form-select" aria-label="Default select example" id="type">
+        <option value="1" selected>Dog</option>
+        <option value="2">Cat</option>
+        <option value="3">Other</option>
+    </select>
+</div>
+<div class="mb-3">
+    <label for="breed" class="form-label">Breed</label>
+    <select class="form-select" aria-label="Default select example" id="breed">
+        <option value="1" selected>Golden retriever</option>
+        <option value="2">German shepherd</option>
+        <option value="3">Border collie</option>
+        <option value="4">Mixture</option>
+    </select>
+</div>
+<div class="mb-3">
+    <label for="gender" class="form-label">Gender</label>
+    <select class="form-select" aria-label="Default select example" id="gender">
+        <option value="1">male</option>
+        <option value="2" selected>female</option>
+    </select>
+</div>
+<div class="mb-3">
+    <label for="color" class="form-label">Color</label>
+    <select class="form-select" aria-label="Default select example" id="color">
+        <option value="1" selected>white</option>
+        <option value="2">brownish</option>
+        <option value="3">brown</option>
+        <option value="4">dark brown</option>
+    </select>
+</div>
+<div class="mb-3">
+    <label for="birth" class="form-label">Birthdate</label>
+    <input type="text" class="form-control" id="birth" aria-describedby="nameHelp" value="2018-03-23"/>
+</div>
+<div class="mb-3">
+    <label for="regid" class="form-label">Registration number</label>
+    <input type="text" class="form-control" id="regid" aria-describedby="nameHelp" value="123456789"/>
+</div>
+<div class="mb-3">
+    <label for="description" class="form-label">Description</label>
+    <input type="text" class="form-control" id="description" aria-describedby="nameHelp" value="favorite"/>
+</div>

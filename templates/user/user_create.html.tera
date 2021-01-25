@@ -1,20 +1,20 @@
-<!DOCTYPE html>
-<html>
-  <head>
-    <meta charset="utf-8" />
-    <title>Create user</title>
-  </head>
-  <body>
+{% extends "base" %}
+{% block body %}
+<div class="container">
     <form action="/user/create" method="post">
-      <label for="">Name:</label><br>
-      <input type="text" id="name" name="name" value="John"><br>
-      <label for="email">Email:</label><br>
-      <input type="email" id="email" name="email" value="john@example.com"><br><br>
-      <label for="age">Age:</label><br>
-      <input type="number" id="age" name="age" value="30" min="1" max="100"><br><br>
-      <label for="age">Password:</label><br>
-      <input type="password" id="password" name="password" value=""><br><br>
-      <input type="submit" value="Submit">
+      <div class="mb-3">
+        <label for="name" class="form-label">Name</label>
+        <input type="text" class="form-control" id="name" aria-describedby="nameHelp" value="John"/>
+      </div>
+      <div class="mb-3">
+        <label for="email" class="form-label">Email</label>
+        <input type="email" class="form-control"  id="email" name="email" aria-describedby="emailHelp" value="john@example.com"/>
+      </div>
+      <div class="mb-3">
+        <label for="password" class="form-label">Password</label>
+        <input type="password" class="form-control"  id="password" name="password" aria-describedby="passwordHelp" value=""/>
+      </div>
+      <button type="submit" class="btn btn-primary">Sign up</button>
     </form>
-  </body>
-</html>
+</div>
+{% endblock body %}

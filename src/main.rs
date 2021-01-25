@@ -158,6 +158,16 @@ fn pet_data(id: u32, user: UserEntity) -> Option<Template> {
     Some(Template::render("pet_data", user))
 }
 
+#[get("/user/pet/add")]
+fn pet_add_get(user: UserEntity) -> Option<Template> {
+    Some(Template::render("pet/add", user))
+}
+
+#[post("/user/pet/add")]
+fn pet_add_post(user: UserEntity) -> Redirect {
+    Redirect::to(uri!(user_main))
+}
+
 // main
 fn main() {
     rocket::ignite()
@@ -179,7 +189,9 @@ fn main() {
                 user_create_facebook,
                 user_logout,
                 user_pets,
-                pet_data
+                pet_data,
+                pet_add_get,
+                pet_add_post
             ],
         )
         .launch();
