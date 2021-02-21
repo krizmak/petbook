@@ -1,8 +1,7 @@
 use rocket::request::{FromForm};
 
 use serde::{Serialize};
-use crate::schema::{addresses, dogs, users};
-use chrono::{NaiveDate};
+use crate::schema::{addresses, users};
 
 //Address
 #[derive(Insertable,Debug,Serialize,Clone)]
@@ -28,36 +27,6 @@ pub struct AddressEntity {
     pub address_line : Option<String>,
 }
 
-//Dog
-#[derive(Insertable,Debug,Clone)]
-#[table_name="dogs"]
-pub struct Dog {
-    pub name : String,
-    pub breed : String,
-    pub sex : String,
-    pub color : String,
-    pub chip_id : Option<String>,
-    pub description : Option<String>,
-    pub birth : NaiveDate,
-    pub death : Option<NaiveDate>,
-    pub owner_id : i32,
-    pub address_id : Option<i32>,
-}
-
-#[derive(Queryable,Debug,Clone)]
-pub struct DogEntity {
-    pub id : i32,
-    pub name : String,
-    pub breed : String,
-    pub sex : String,
-    pub color : String,
-    pub chip_id : Option<String>,
-    pub description : Option<String>,
-    pub birth : NaiveDate,
-    pub death : Option<NaiveDate>,
-    pub owner_id : i32,
-    pub address_id : Option<i32>,
-}
 
 // User
 #[derive(Insertable,FromForm,Debug,Serialize,Clone)]

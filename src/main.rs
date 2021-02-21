@@ -15,6 +15,7 @@ use tera::Context;
 
 use petbook::db_sqlite::DbConn;
 use petbook::models::{UserEntity};
+use petbook::dog::models::{Dog, DogForm};
 use petbook::auth::password::{LoginInfo, UserCreateInfo};
 use petbook::auth::facebook::{FacebookLoginInfo, FacebookCreateInfo};
 use petbook::auth::google::{GoogleLoginInfo, GoogleCreateInfo};
@@ -163,8 +164,8 @@ fn pet_add_get(user: UserEntity) -> Option<Template> {
     Some(Template::render("pet/add", user))
 }
 
-#[post("/user/pet/add")]
-fn pet_add_post(user: UserEntity) -> Redirect {
+#[post("/user/pet/add", data = "<dog_form>")]
+fn pet_add_post(db: DbConn, user: UserEntity, dog_form : Form<DogForm>) -> Redirect {
     Redirect::to(uri!(user_main))
 }
 
