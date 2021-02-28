@@ -15,11 +15,12 @@ use tera::Context;
 
 use petbook::db_sqlite::DbConn;
 use petbook::models::{UserEntity};
-use petbook::dog::models::{Dog, DogForm};
+use petbook::dog::models::{Dog, DogForm, DogEntity};
 use petbook::auth::password::{LoginInfo, UserCreateInfo};
 use petbook::auth::facebook::{FacebookLoginInfo, FacebookCreateInfo};
 use petbook::auth::google::{GoogleLoginInfo, GoogleCreateInfo};
 use petbook::auth::{AuthenticationError, UserCreationError};
+use chrono::NaiveDate;
 
 #[derive(Debug, Responder)]
 pub enum LoginResponse {
@@ -150,23 +151,49 @@ fn user_logout(mut cookies: Cookies) -> Redirect {
 }
 
 #[get("/user/pets")]
-fn user_pets(user: UserEntity) -> Option<Template> {
-    Some(Template::render("user_pets", user))
+fn user_pets(db: DbConn, user: UserEntity) -> Result<Template, UserCreationError> {
+    let dogs = db.fetch_dogs(&user).map_err(|_| UserCreationError::InternalError("Google error".to_owned()))?;
+    let mut context = Context::new();
+    context.insert("dogs", &dogs);
+    Ok(Template::render("user_pets", &context.into_json()))
 }
 
 #[get("/pets/<id>")]
-fn pet_data(id: u32, user: UserEntity) -> Option<Template> {
-    Some(Template::render("pet_data", user))
+fn pet_data(db: DbConn, id: i32, user: UserEntity) -> Result<Template,UserCreationError> {
+    let dog = db.fetch_dog_by_id(id).map_err(|_| UserCreationError::InternalError("Google error".to_owned()))?;
+    if dog.owner_id == user.id {
+        let mut context = Context::new();
+        println!("{0:?}",&dog);
+        context.insert("dog", &dog);
+        Ok(Template::render("pet/data", context.into_json()))
+    }
+    else {
+        Err(UserCreationError::InternalError("other error".to_owned()))
+    }
 }
 
 #[get("/user/pet/add")]
 fn pet_add_get(user: UserEntity) -> Option<Template> {
-    Some(Template::render("pet/add", user))
+    let mut context = Context::new();
+    Some(Template::render("pet/add", context.into_json()))
 }
 
 #[post("/user/pet/add", data = "<dog_form>")]
 fn pet_add_post(db: DbConn, user: UserEntity, dog_form : Form<DogForm>) -> Redirect {
-    Redirect::to(uri!(user_main))
+    let dog = Dog {
+        name: dog_form.name.to_string(),
+        breed: dog_form.breed,
+        sex: dog_form.sex.to_string(),
+        color: dog_form.color,
+        chip_id: dog_form.chip_id.to_owned(),
+        description: dog_form.description.to_owned(),
+        birth: *dog_form.birth.to_owned(),
+        death: None,
+        owner_id: user.id,
+        address_id: None
+    };
+    db.insert_dog(&dog);
+    Redirect::to(uri!(user_pets))
 }
 
 // main

@@ -1,9 +1,0 @@
-{% extends "base_nav" %}
-{% block content %}
-    <div class="container">
-    <form>
-      {% include "pet/data_form" %}
-      <button type="submit" class="btn btn-primary">Update</button>
-    </form>
-    </div>
-{% endblock container %}

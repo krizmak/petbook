@@ -15,9 +15,9 @@ table! {
     dogs (id) {
         id -> Integer,
         name -> Text,
-        breed -> Text,
+        breed -> Integer,
         sex -> Text,
-        color -> Text,
+        color -> Integer,
         chip_id -> Nullable<Text>,
         description -> Nullable<Text>,
         birth -> Date,

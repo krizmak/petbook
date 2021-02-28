@@ -1,45 +1,45 @@
 <div class="mb-3">
     <label for="name" class="form-label">Name</label>
-    <input type="text" class="form-control" id="name" aria-describedby="nameHelp" value="Nina" name="name"/>
+    <input type="text" class="form-control" id="name" aria-describedby="nameHelp" name="name" value="{{dog.name | default(value='')}}"/>
 </div>
 <div class="mb-3">
     <label for="breed" class="form-label">Breed</label>
     <select class="form-select" aria-label="Default select example" id="breed" name="breed">
-        <option value="1" selected>Golden retriever</option>
-        <option value="2">German shepherd</option>
-        <option value="3">Border collie</option>
-        <option value="4">Mixture</option>
+        <option value="1" {%if dog and dog.breed==1 %}selected{%endif%}>Golden retriever</option>
+        <option value="2" {%if dog and dog.breed==2 %}selected{%endif%}>German shepherd</option>
+        <option value="3" {%if dog and dog.breed==3 %}selected{%endif%}>Border collie</option>
+        <option value="4" {%if dog and dog.breed==4 %}selected{%endif%}>Mixture</option>
     </select>
 </div>
 <div class="mb-3">
     <label for="sex" class="form-label">Sex</label>
     <select class="form-select" aria-label="Default select example" id="sex" name="sex">
-        <option value="1">male</option>
-        <option value="2" selected>female</option>
+        <option value="m" {%if dog and dog.sex=='m' %}selected{%endif%}>male</option>
+        <option value="f" {%if dog and dog.sex=='f' %}selected{%endif%}>female</option>
     </select>
 </div>
 <div class="mb-3">
     <label for="color" class="form-label">Color</label>
     <select class="form-select" aria-label="Default select example" id="color" name="color">
-        <option value="1" selected>white</option>
-        <option value="2">brownish</option>
-        <option value="3">brown</option>
-        <option value="4">dark brown</option>
+        <option value="1" {%if dog and dog.color==1 %}selected{%endif%}>white</option>
+        <option value="2" {%if dog and dog.color==2 %}selected{%endif%}>brownish</option>
+        <option value="3" {%if dog and dog.color==3 %}selected{%endif%}>brown</option>
+        <option value="4" {%if dog and dog.color==4 %}selected{%endif%}>dark brown</option>
     </select>
 </div>
 <div class="mb-3">
     <label for="birth" class="form-label">Birthdate</label>
-    <input type="text" class="form-control" id="birth" name="birth" aria-describedby="nameHelp" value="2018-03-23"/>
+    <input type="text" class="form-control" id="birth" name="birth" aria-describedby="nameHelp" value="{{dog.birth|default(value='YYY-mm-dd')}}"/>
 </div>
 <div class="mb-3">
     <label for="death" class="form-label">Death</label>
-    <input type="text" class="form-control" id="death" name="death" aria-describedby="nameHelp" value="2018-03-23"/>
+    <input type="text" class="form-control" id="death" name="death" aria-describedby="nameHelp" value="{{dog.death|default(value='YYYY-mm-dd')}}"/>
 </div>
 <div class="mb-3">
     <label for="chip_id" class="form-label">Microchip registration number</label>
-    <input type="text" class="form-control" id="chip_id" name="chip_id" aria-describedby="nameHelp" value="123456789"/>
+    <input type="text" class="form-control" id="chip_id" name="chip_id" aria-describedby="nameHelp" value="{{dog.chip_id|default(value='XXXXXXXX')}}"/>
 </div>
 <div class="mb-3">
     <label for="description" class="form-label">Description</label>
-    <input type="text" class="form-control" id="description" name="description" aria-describedby="nameHelp" value="favorite"/>
+    <input type="text" class="form-control" id="description" name="description" aria-describedby="nameHelp" value="{{dog.description|default(value='')}}"/>
 </div>

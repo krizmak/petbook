@@ -7,9 +7,9 @@ use crate::dog::forms::NaiveDateForm;
 #[derive(FromForm,Debug,Clone)]
 pub struct DogForm {
     pub name : String,
-    pub breed : String,
+    pub breed : i32,
     pub sex : String,
-    pub color : String,
+    pub color : i32,
     pub chip_id : Option<String>,
     pub description : Option<String>,
     pub birth : NaiveDateForm,
@@ -20,9 +20,9 @@ pub struct DogForm {
 #[table_name="dogs"]
 pub struct Dog {
     pub name : String,
-    pub breed : String,
+    pub breed : i32,
     pub sex : String,
-    pub color : String,
+    pub color : i32,
     pub chip_id : Option<String>,
     pub description : Option<String>,
     pub birth : NaiveDate,
@@ -31,13 +31,13 @@ pub struct Dog {
     pub address_id : Option<i32>,
 }
 
-#[derive(Queryable,Debug,Clone)]
+#[derive(Queryable,Debug,Clone,Serialize)]
 pub struct DogEntity {
     pub id : i32,
     pub name : String,
-    pub breed : String,
+    pub breed : i32,
     pub sex : String,
-    pub color : String,
+    pub color : i32,
     pub chip_id : Option<String>,
     pub description : Option<String>,
     pub birth : NaiveDate,

@@ -2,9 +2,9 @@
 CREATE TABLE dogs (
   id INTEGER PRIMARY KEY NOT NULL,
   name TEXT NOT NULL,
-  breed TEXT NOT NULL,
+  breed INTEGER NOT NULL,
   sex CHAR(1) NOT NULL,
-  color TEXT NOT NULL,
+  color INTEGER NOT NULL,
   chip_id TEXT,
   description TEXT,
   birth DATE NOT NULL,

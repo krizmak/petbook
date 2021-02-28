@@ -5,6 +5,7 @@ use crate::diesel::ExpressionMethods;
 use rocket_contrib::database;
 use rocket_contrib::databases::diesel;
 use diesel::QueryResult;
+use crate::dog::models::{DogEntity, Dog};
 
 #[database("sqlite_database")]
 pub struct DbConn(diesel::SqliteConnection);
@@ -62,4 +63,36 @@ impl DbConn {
             .order(id)
             .load::<UserEntity>(&self.0)
     }
+
+    pub fn insert_dog(&self, dog: &Dog) -> QueryResult<DogEntity> {
+        use crate::schema::dogs::dsl::*;
+        use crate::schema::dogs::dsl::id;
+
+        diesel::insert_into(dogs)
+            .values(dog)
+            .execute(&self.0)?;
+
+        let dog_entity: DogEntity = dogs
+            .order(id.desc())
+            .first(&self.0)?;
+
+        Ok(dog_entity)
+   }
+
+    pub fn fetch_dogs(&self, user: &UserEntity) -> QueryResult<Vec<DogEntity>> {
+        use crate::schema::dogs::dsl::*;
+        dogs
+            .filter(owner_id.eq(user.id))
+            .load::<DogEntity>(&self.0)
+
+    }
+
+    pub fn fetch_dog_by_id(&self, dogid: i32) -> QueryResult<DogEntity> {
+        use crate::schema::dogs::dsl::*;
+        dogs
+            .filter(id.eq(dogid))
+            .first::<DogEntity>(&self.0)
+
+    }
+
 }
