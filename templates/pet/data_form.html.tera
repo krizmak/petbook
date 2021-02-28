@@ -5,10 +5,9 @@
 <div class="mb-3">
     <label for="breed" class="form-label">Breed</label>
     <select class="form-select" aria-label="Default select example" id="breed" name="breed">
-        <option value="1" {%if dog and dog.breed==1 %}selected{%endif%}>Golden retriever</option>
-        <option value="2" {%if dog and dog.breed==2 %}selected{%endif%}>German shepherd</option>
-        <option value="3" {%if dog and dog.breed==3 %}selected{%endif%}>Border collie</option>
-        <option value="4" {%if dog and dog.breed==4 %}selected{%endif%}>Mixture</option>
+        {%for breed in breeds %}
+           <option value="{{breed.id}}" {%if dog and dog.breed==breed.id %}selected{%endif%}>{{breed.name}}</option>
+        {%endfor%}
     </select>
 </div>
 <div class="mb-3">

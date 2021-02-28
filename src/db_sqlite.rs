@@ -5,7 +5,7 @@ use crate::diesel::ExpressionMethods;
 use rocket_contrib::database;
 use rocket_contrib::databases::diesel;
 use diesel::QueryResult;
-use crate::dog::models::{DogEntity, Dog};
+use crate::dog::models::{DogEntity, Dog, DogBreedEntity};
 
 #[database("sqlite_database")]
 pub struct DbConn(diesel::SqliteConnection);
@@ -79,6 +79,21 @@ impl DbConn {
         Ok(dog_entity)
    }
 
+    pub fn update_dog(&self, dog_entity: &DogEntity) -> QueryResult<DogEntity> {
+        use crate::schema::dogs::dsl::*;
+        use crate::schema::dogs::dsl::id;
+
+        diesel::update(dogs.filter(id.eq(dog_entity.id)))
+            .set(dog_entity)
+            .execute(&self.0)?;
+
+        let updated_dog_entity: DogEntity =
+            dogs.filter(id.eq(dog_entity.id))
+            .first(&self.0)?;
+
+        Ok(updated_dog_entity)
+    }
+
     pub fn fetch_dogs(&self, user: &UserEntity) -> QueryResult<Vec<DogEntity>> {
         use crate::schema::dogs::dsl::*;
         dogs
@@ -93,6 +108,11 @@ impl DbConn {
             .filter(id.eq(dogid))
             .first::<DogEntity>(&self.0)
 
+    }
+
+    pub fn fetch_dog_breeds(&self) -> QueryResult<Vec<DogBreedEntity>> {
+        use crate::schema::dog_breeds::dsl::*;
+        dog_breeds.load::<DogBreedEntity>(&self.0)
     }
 
 }

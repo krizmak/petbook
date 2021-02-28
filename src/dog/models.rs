@@ -1,6 +1,7 @@
 use rocket::request::{FromForm};
 use serde::{Serialize};
 use chrono::NaiveDate;
+use diesel::query_builder::AsChangeset;
 use crate::schema::dogs;
 use crate::dog::forms::NaiveDateForm;
 
@@ -31,7 +32,8 @@ pub struct Dog {
     pub address_id : Option<i32>,
 }
 
-#[derive(Queryable,Debug,Clone,Serialize)]
+#[derive(Queryable,Debug,Clone,Serialize,AsChangeset)]
+#[table_name="dogs"]
 pub struct DogEntity {
     pub id : i32,
     pub name : String,
@@ -46,3 +48,8 @@ pub struct DogEntity {
     pub address_id : Option<i32>,
 }
 
+#[derive(Queryable,Debug,Clone,Serialize)]
+pub struct DogBreedEntity {
+    pub id: i32,
+    pub name: String
+}

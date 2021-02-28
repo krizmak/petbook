@@ -12,6 +12,13 @@ table! {
 }
 
 table! {
+    dog_breeds (id) {
+        id -> Integer,
+        name -> Text,
+    }
+}
+
+table! {
     dogs (id) {
         id -> Integer,
         name -> Text,
@@ -49,6 +56,7 @@ joinable!(users -> addresses (address_id));
 
 allow_tables_to_appear_in_same_query!(
     addresses,
+    dog_breeds,
     dogs,
     users,
 );
