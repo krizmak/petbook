@@ -6,3 +6,4 @@ pub mod models;
 pub mod auth;
 pub mod db_sqlite;
 pub mod dog;
+pub mod widget;
