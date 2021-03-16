@@ -64,49 +64,11 @@ impl DbConn {
             .load::<UserEntity>(&self.0)
     }
 
-    pub fn insert_dog(&self, dog: &Dog) -> QueryResult<DogEntity> {
-        use crate::schema::dogs::dsl::*;
-        use crate::schema::dogs::dsl::id;
-
-        diesel::insert_into(dogs)
-            .values(dog)
-            .execute(&self.0)?;
-
-        let dog_entity: DogEntity = dogs
-            .order(id.desc())
-            .first(&self.0)?;
-
-        Ok(dog_entity)
-   }
-
-    pub fn update_dog(&self, dog_entity: &DogEntity) -> QueryResult<DogEntity> {
-        use crate::schema::dogs::dsl::*;
-        use crate::schema::dogs::dsl::id;
-
-        diesel::update(dogs.filter(id.eq(dog_entity.id)))
-            .set(dog_entity)
-            .execute(&self.0)?;
-
-        let updated_dog_entity: DogEntity =
-            dogs.filter(id.eq(dog_entity.id))
-            .first(&self.0)?;
-
-        Ok(updated_dog_entity)
-    }
-
     pub fn fetch_dogs(&self, user: &UserEntity) -> QueryResult<Vec<DogEntity>> {
         use crate::schema::dogs::dsl::*;
         dogs
             .filter(owner_id.eq(user.id))
             .load::<DogEntity>(&self.0)
-
-    }
-
-    pub fn fetch_dog_by_id(&self, dogid: i32) -> QueryResult<DogEntity> {
-        use crate::schema::dogs::dsl::*;
-        dogs
-            .filter(id.eq(dogid))
-            .first::<DogEntity>(&self.0)
 
     }
 
