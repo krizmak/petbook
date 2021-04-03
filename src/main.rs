@@ -160,12 +160,12 @@ fn user_pets(db: DbConn, user: UserEntity) -> Result<Template, UserCreationError
 
 #[get("/pets/<id>")]
 fn pet_data(db: DbConn, id: i32, user: UserEntity) -> Result<Template,UserCreationError> {
-    let dog = Dog::get(id,&db).map_err(|_| UserCreationError::InternalError("Google error".to_owned()))?;
+    let (dog_id, dog) = Dog::get(id,&db).map_err(|_| UserCreationError::InternalError("Google error".to_owned()))?;
     if dog.owner_id == user.id {
         let mut context = Context::new();
         //let dog_breeds = db.fetch_dog_breeds().map_err(|_| UserCreationError::InternalError("Google error".to_owned()))?;
-        context.insert("dog", &DogForm::to_form(Some(&dog), &db));
-        context.insert("dog_id", &dog.id);
+        context.insert("dog", &DogForm::create(Some(&dog), &db));
+        context.insert("dog_id", &dog_id);
         //context.insert("breeds", &dog_breeds);
         Ok(Template::render("pet/data", context.into_json()))
     }
@@ -176,13 +176,13 @@ fn pet_data(db: DbConn, id: i32, user: UserEntity) -> Result<Template,UserCreati
 
 #[post("/user/pet/<id>/update", data = "<dog_form>")]
 fn pet_update_post(db: DbConn, id: i32, user: UserEntity, dog_form: Form<DogForm>) -> Result<Template,UserCreationError> {
-    let mut dog = Dog::get(id, &db).map_err(|_| UserCreationError::InternalError("Google error".to_owned()))?;
+    let (dog_id, dog) = Dog::get(id, &db).map_err(|_| UserCreationError::InternalError("Google error".to_owned()))?;
     if dog.owner_id == user.id {
-        dog_form.modify(&mut dog);
-        dog.update(&db);
+        let updated_dog = dog_form.to_dog(&user);
+        Dog::update( dog_id, &updated_dog, &db);
         let mut context = Context::new();
-        context.insert("dog_id", &dog.id);
-        context.insert("dog", &DogForm::to_form(Some(&dog), &db));
+        context.insert("dog_id", &dog_id);
+        context.insert("dog", &DogForm::create(Some(&updated_dog), &db));
         Ok(Template::render("pet/data", context.into_json()))
     }
     else {
@@ -193,25 +193,14 @@ fn pet_update_post(db: DbConn, id: i32, user: UserEntity, dog_form: Form<DogForm
 #[get("/user/pet/add")]
 fn pet_add_get(db: DbConn, user: UserEntity) -> Result<Template,UserCreationError> {
     let mut context = Context::new();
-    context.insert("dog", &DogForm::to_form(None, &db));
+    context.insert("dog", &DogForm::create(None, &db));
     Ok(Template::render("pet/add", context.into_json()))
 }
 
 #[post("/user/pet/add", data = "<dog_form>")]
 fn pet_add_post(db: DbConn, user: UserEntity, dog_form : Form<DogForm>) -> Redirect {
-    let dog = Dog {
-        name: dog_form.name.to_string(),
-        breed: dog_form.breed,
-        sex: dog_form.sex.to_string(),
-        color: dog_form.color,
-        chip_id: dog_form.chip_id.to_owned(),
-        description: dog_form.description.to_owned(),
-        birth: *dog_form.birth.to_owned(),
-        death: None,
-        owner_id: user.id,
-        address_id: None
-    };
-    dog.insert(&db);
+    let dog = dog_form.to_dog(&user);
+
     Redirect::to(uri!(user_pets))
 }
 

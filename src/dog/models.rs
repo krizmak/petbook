@@ -11,34 +11,55 @@ use diesel::QueryResult;
 use crate::diesel::ExpressionMethods;
 use crate::diesel::QueryDsl;
 use crate::diesel::RunQueryDsl;
+use crate::models::UserEntity;
 
 macro_rules! build_model {
-    ( $struct_name:ident; $new_struct_name:ident; $table_id:ident; $table:expr => {
+    ( $struct_name:ident; $entity_struct_name:ident; $table_id:ident; $table:expr => {
         $( $attr_name:ident : $attr_type:ty ),*
     }) => {
         #[table_name=$table]
-        #[derive(Queryable, Serialize, Debug, Clone, AsChangeset)]
+        #[derive(Serialize, Insertable, Debug, Clone)]
         pub struct $struct_name {
+            $( pub $attr_name : $attr_type ),*
+        }
+
+        #[table_name=$table]
+        #[derive(Queryable, Serialize, Debug, Clone, AsChangeset)]
+        pub struct $entity_struct_name {
             pub id: i32,
             $( pub $attr_name : $attr_type ),*
         }
 
-        #[table_name=$table]
-        #[derive(Serialize, Insertable, Debug, Clone)]
-        pub struct $new_struct_name {
-            $( pub $attr_name : $attr_type ),*
-        }
-
-       impl $new_struct_name {
-            pub fn get(get_id: i32, db: &DbConn) -> QueryResult<$struct_name> {
-                use crate::schema::$table_id::dsl::*;
-
-                $table_id
-                    .filter(id.eq(get_id))
-                    .first::<$struct_name>(&db.0)
+        impl $struct_name {
+            pub fn from_entity(entity: $entity_struct_name) -> (i32, $struct_name) {
+                (entity.id,
+                 $struct_name {
+                    $( $attr_name : entity.$attr_name ),*
+                 })
             }
 
-            pub fn insert(&self, db: &DbConn) -> QueryResult<$struct_name> {
+        }
+
+        impl $entity_struct_name {
+            pub fn from(entity_id: i32, base_struct: &$struct_name) -> $entity_struct_name {
+                $entity_struct_name {
+                    id : entity_id,
+                    $( $attr_name : base_struct.$attr_name.clone() ),*
+                }
+            }
+        }
+
+       impl $struct_name {
+            pub fn get(get_id: i32, db: &DbConn) -> QueryResult<(i32, $struct_name)> {
+                use crate::schema::$table_id::dsl::*;
+
+                let entity = $table_id
+                    .filter(id.eq(get_id))
+                    .first::<$entity_struct_name>(&db.0)?;
+                Ok($struct_name::from_entity(entity))
+            }
+
+            pub fn insert(&self, db: &DbConn) -> QueryResult<(i32,$struct_name)> {
                 use crate::schema::$table_id::dsl::*;
                 use crate::schema::$table_id::dsl::id;
 
@@ -46,35 +67,37 @@ macro_rules! build_model {
                     .values(self)
                     .execute(&db.0)?;
 
-                let entity: $struct_name = $table_id
+                let entity: $entity_struct_name = $table_id
                     .order(id.desc())
                     .first(&db.0)?;
 
-                Ok(entity)
+                Ok($struct_name::from_entity(entity))
             }
        }
 
        impl $struct_name {
-            pub fn update(&self, db: &DbConn) -> QueryResult<DogEntity>
+            pub fn update( update_id: i32, new_values: &$struct_name,db: &DbConn) -> QueryResult<(i32, $struct_name)>
             {
                 use crate::schema::$table_id::dsl::*;
                 use crate::schema::$table_id::dsl::id;
 
-                diesel::update($table_id.filter(id.eq(self.id)))
-                    .set(self)
+                let new_entity = $entity_struct_name::from(update_id, new_values);
+                print!("{:?}", &new_entity);
+                diesel::update($table_id.filter(id.eq(update_id)))
+                    .set(&new_entity)
                     .execute(&db.0)?;
 
-                let updated_entity =
-                    $table_id.filter(id.eq(self.id))
+                let updated_entity : $entity_struct_name =
+                    $table_id.filter(id.eq(update_id))
                     .first(&db.0)?;
 
-                Ok(updated_entity)
+                Ok($struct_name::from_entity(updated_entity))
             }
        }
     }
 }
 
-build_model!(DogEntity; Dog; dogs; "dogs" => {
+build_model!(Dog; DogEntity; dogs; "dogs" => {
     name : String,
     breed : i32,
     sex : String,
@@ -103,7 +126,7 @@ pub struct DogForm {
 pub struct DogHtmlForm(HtmlForm);
 
 impl DogForm {
-    pub fn to_form(dog : Option<&DogEntity>, db : &DbConn) -> String {
+    pub fn create(dog : Option<&Dog>, db : &DbConn) -> String {
         let dog_breeds= db.fetch_dog_breeds().expect("db_error");
         let breeds = dog_breeds.iter().map(|x| (x.id.to_string(), x.name.to_owned() )).collect::<Vec<(_,_)>>();
         let sexes = vec![("m".to_owned(),"male".to_owned()),("f".to_owned(),"female".to_owned())];
@@ -113,8 +136,7 @@ impl DogForm {
             (3.to_string(),"brown".to_owned()),
             (4.to_string(),"dark brown".to_owned()),
         ];
-        let default_dog = DogEntity {
-            id: 0,
+        let default_dog = Dog {
             name: "".to_string(),
             breed: 0,
             sex: "".to_string(),
@@ -140,16 +162,19 @@ impl DogForm {
         HtmlForm{fields}.to_html()
     }
 
-    pub fn modify(&self, dog : &mut DogEntity) {
-        dog.name = self.name.to_string();
-        dog.breed = self.breed;
-        dog.sex = self.sex.to_string();
-        dog.color = self.color;
-        dog.chip_id = self.chip_id.to_owned();
-        dog.description = self.description.to_owned();
-        dog.birth = *self.birth.to_owned();
-        dog.death = self.death.as_ref().map(|x| **x);
-        dog.address_id = None;
+    pub fn to_dog(&self, owner: &UserEntity) -> Dog {
+        Dog{
+            name : self.name.to_string(),
+            breed : self.breed,
+            sex : self.sex.to_string(),
+            color : self.color,
+            chip_id : self.chip_id.to_owned(),
+            description : self.description.to_owned(),
+            birth : *self.birth.to_owned(),
+            death : self.death.as_ref().map(|x| **x),
+            owner_id: owner.id,
+            address_id : None
+        }
     }
 }
 
