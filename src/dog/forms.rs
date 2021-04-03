@@ -10,7 +10,8 @@ impl<'v> FromFormValue<'v> for NaiveDateForm {
     type Error = &'v RawStr;
 
     fn from_form_value(form_value: &'v RawStr) -> Result<NaiveDateForm, &'v RawStr> {
-        Ok(NaiveDateForm(Utc::today().naive_utc()))
+        let naive_date = NaiveDate::parse_from_str(form_value, "%Y-%m-%d").map_err(|x| form_value)?;
+        Ok(NaiveDateForm(naive_date))
     }
 }
 
