@@ -126,7 +126,7 @@ pub struct DogForm {
 pub struct DogHtmlForm(HtmlForm);
 
 impl DogForm {
-    pub fn create(dog : Option<&Dog>, db : &DbConn) -> String {
+    pub fn from_dog(dog : Option<&Dog>, db : &DbConn) -> String {
         let dog_breeds= db.fetch_dog_breeds().expect("db_error");
         let breeds = dog_breeds.iter().map(|x| (x.id.to_string(), x.name.to_owned() )).collect::<Vec<(_,_)>>();
         let sexes = vec![("m".to_owned(),"male".to_owned()),("f".to_owned(),"female".to_owned())];
