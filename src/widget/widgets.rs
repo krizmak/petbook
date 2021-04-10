@@ -19,8 +19,6 @@
 
  */
 
-use std::collections::HashMap;
-
 pub enum FormInputType {
     Checkbox{name: String, values: Vec<(String, String)>, checked_value: String, label: String},
     Select{name: String, values: Vec<(String, String)>, selected_value: String, label: String},

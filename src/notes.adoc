@@ -62,3 +62,26 @@
 
 ** lost
 *** date, location_address, location_gps, description, image (set default image)
+
+
+* User
+  - name
+  - Some(address_id)
+  
+* UserEntity
+  - id
+  - name
+  - Some(address_id)
+
+* Address
+  - country
+  
+* AddressEntity
+  - id
+  - country
+
+* User::update(id, user: &User, db : &DbConn)
+* Address::update(id, address: &Address, db: &DbConn)
+
+* User::get(id, db: &DbConn) -> (id, User)
+* Address::get(id, db: &DbConn) -> (id, Address)

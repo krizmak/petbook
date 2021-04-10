@@ -14,13 +14,13 @@ use rocket_contrib::serve::StaticFiles;
 use tera::Context;
 
 use petbook::db_sqlite::DbConn;
-use petbook::models::{UserEntity};
-use petbook::dog::models::{Dog, DogForm, DogEntity};
-use petbook::auth::password::{LoginInfo, UserCreateInfo};
-use petbook::auth::facebook::{FacebookLoginInfo, FacebookCreateInfo};
-use petbook::auth::google::{GoogleLoginInfo, GoogleCreateInfo};
-use petbook::auth::{AuthenticationError, UserCreationError};
-use chrono::NaiveDate;
+use petbook::user::models::{UserEntity, User, Address};
+use petbook::dog::models::{Dog, DogForm};
+use petbook::user::auth::password::{LoginInfo, UserCreateInfo};
+use petbook::user::auth::facebook::{FacebookLoginInfo, FacebookCreateInfo};
+use petbook::user::auth::google::{GoogleLoginInfo, GoogleCreateInfo};
+use petbook::user::auth::{AuthenticationError, UserCreationError};
+use petbook::user::forms::UserForm;
 
 #[derive(Debug, Responder)]
 pub enum LoginResponse {
@@ -39,7 +39,7 @@ fn user_add() -> Template {
 #[post("/user/create", data = "<user_create_info>")]
 fn user_add_post(db: DbConn, user_create_info: Form<UserCreateInfo>, cookies: Cookies)
     -> Result<Template, UserCreationError> {
-    petbook::auth::create_user(db, &user_create_info.into_inner(), cookies)?;
+    petbook::user::auth::create_user(db, &user_create_info.into_inner(), cookies)?;
     let context: HashMap<&str, &str> = HashMap::new();
     Ok(Template::render("user/user_create_suc", &context))
 }
@@ -58,8 +58,34 @@ fn user_main(user: UserEntity) -> Option<Template> {
 }
 
 #[get("/user/data")]
-fn user_data(user: UserEntity) -> Option<Template> {
-    Some(Template::render("user/user_data", user))
+fn user_data(db: DbConn, user_entity: UserEntity) -> Option<Template> {
+    let mut context = Context::new();
+    let (user_id, user) = User::from_entity(user_entity);
+    let (_, address) = user.get_address(&db);
+    context.insert("user", &UserForm::from_objects(&user, &address));
+    context.insert("user_id", &user_id);
+    Some(Template::render("user/user_data", context.into_json()))
+}
+
+#[post("/user/data", data = "<user_form>")]
+fn user_update_post(db: DbConn, user_entity: UserEntity, user_form: Form<UserForm>) -> Option<Template> {
+    let (user_id, mut user) = User::from_entity(user_entity);
+    let (maybe_address_id, mut address) = user.get_address(&db);
+    user_form.to_objects(&mut user, &mut address);
+    println!("Update user: {:?}", &user);
+    match maybe_address_id {
+        None => {
+            let (address_id, _) = address.insert(&db).unwrap();
+            user.address_id = Some(address_id);
+        },
+        Some(address_id) => {Address::update(address_id, &address, &db);}
+    };
+    User::update( user_id, &user, &db);
+
+    let mut context = Context::new();
+    context.insert("user_id", &user_id);
+    context.insert("user", &UserForm::from_objects(&user, &address));
+    Some(Template::render("user/user_data", context.into_json()))
 }
 
 #[get("/user/login")]
@@ -74,7 +100,7 @@ fn user_login_post(
     login_info: Form<LoginInfo>,
     cookies: Cookies
 ) -> LoginResponse {
-    let authentication_result = petbook::auth::authenticate_user(db, &login_info.into_inner(),cookies);
+    let authentication_result = petbook::user::auth::authenticate_user(db, &login_info.into_inner(), cookies);
     match authentication_result {
         Ok(_) => LoginResponse::Redirect(Redirect::to(uri!(user_main))),
         Err(AuthenticationError::Failed) => LoginResponse::Redirect(Redirect::to(uri!(user_login))),
@@ -90,7 +116,7 @@ fn user_login_google(
     cookies: Cookies
 ) -> LoginResponse {
     let login_info_inner = login_info.into_inner();
-    let authentication_result = petbook::auth::authenticate_user(db, &login_info_inner, cookies);
+    let authentication_result = petbook::user::auth::authenticate_user(db, &login_info_inner, cookies);
     match authentication_result {
         Ok(_) => LoginResponse::Redirect(Redirect::to(uri!(user_main))),
         Err(AuthenticationError::FailedWithEmail(email)) => {
@@ -108,7 +134,7 @@ fn user_login_google(
 #[post("/user/create_google", data = "<user_create_info>")]
 fn user_create_google(db: DbConn, user_create_info: Form<GoogleCreateInfo>, cookies: Cookies)
     -> Result<Redirect, UserCreationError> {
-    petbook::auth::create_user(db, &user_create_info.into_inner(), cookies)?;
+    petbook::user::auth::create_user(db, &user_create_info.into_inner(), cookies)?;
     Ok(Redirect::to(uri!(user_main)))
 }
 
@@ -119,7 +145,7 @@ fn user_login_facebook(
     cookies: Cookies,
 ) -> LoginResponse {
     let login_info_inner = fblogin_info.into_inner();
-    let authentication_result = petbook::auth::authenticate_user(db, &login_info_inner, cookies);
+    let authentication_result = petbook::user::auth::authenticate_user(db, &login_info_inner, cookies);
     match authentication_result {
         Ok(_) => LoginResponse::Redirect(Redirect::to(uri!(user_main))),
         Err(AuthenticationError::FailedWithEmail(email)) => {
@@ -140,7 +166,7 @@ fn user_create_facebook(
     user_create_info: Form<FacebookCreateInfo>,
     cookies: Cookies,
 ) -> Result<Redirect, UserCreationError> {
-    petbook::auth::create_user(db, &user_create_info.into_inner(), cookies)?;
+    petbook::user::auth::create_user(db, &user_create_info.into_inner(), cookies)?;
     Ok(Redirect::to(uri!(user_main)))
 }
 
@@ -191,7 +217,7 @@ fn pet_update_post(db: DbConn, id: i32, user: UserEntity, dog_form: Form<DogForm
 }
 
 #[get("/user/pet/add")]
-fn pet_add_get(db: DbConn, user: UserEntity) -> Result<Template,UserCreationError> {
+fn pet_add_get(db: DbConn, _user: UserEntity) -> Result<Template,UserCreationError> {
     let mut context = Context::new();
     context.insert("dog", &DogForm::from_dog(None, &db));
     Ok(Template::render("pet/add", context.into_json()))
@@ -216,6 +242,7 @@ fn main() {
             routes![
                 user_main,
                 user_data,
+                user_update_post,
                 user_add,
                 user_add_post,
                 user_login,

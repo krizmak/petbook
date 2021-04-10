@@ -1,4 +1,4 @@
-use chrono::{NaiveDate, Utc};
+use chrono::{NaiveDate};
 use rocket::request::FromFormValue;
 use rocket::http::RawStr;
 use std::ops::Deref;
@@ -10,7 +10,7 @@ impl<'v> FromFormValue<'v> for NaiveDateForm {
     type Error = &'v RawStr;
 
     fn from_form_value(form_value: &'v RawStr) -> Result<NaiveDateForm, &'v RawStr> {
-        let naive_date = NaiveDate::parse_from_str(form_value, "%Y-%m-%d").map_err(|x| form_value)?;
+        let naive_date = NaiveDate::parse_from_str(form_value, "%Y-%m-%d").map_err(|_| form_value)?;
         Ok(NaiveDateForm(naive_date))
     }
 }

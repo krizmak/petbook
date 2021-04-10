@@ -1,6 +1,6 @@
 use rocket::request;
 use rocket::outcome::IntoOutcome;
-use crate::models::UserEntity;
+use crate::user::models::UserEntity;
 use crate::db_sqlite::DbConn;
 use rocket::http::{Cookies, Cookie};
 

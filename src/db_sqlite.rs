@@ -1,11 +1,11 @@
-use crate::models::{User, UserEntity};
+use crate::user::models::{User, UserEntity};
 use crate::diesel::RunQueryDsl;
 use crate::diesel::QueryDsl;
 use crate::diesel::ExpressionMethods;
 use rocket_contrib::database;
 use rocket_contrib::databases::diesel;
 use diesel::QueryResult;
-use crate::dog::models::{DogEntity, Dog, DogBreedEntity};
+use crate::dog::models::{DogEntity, DogBreedEntity};
 
 #[database("sqlite_database")]
 pub struct DbConn(diesel::SqliteConnection);

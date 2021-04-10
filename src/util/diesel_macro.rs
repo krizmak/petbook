@@ -68,7 +68,7 @@ macro_rules! build_model {
                 use crate::schema::$table_id::dsl::id;
 
                 let new_entity = $entity_struct_name::from(update_id, new_values);
-                print!("{:?}", &new_entity);
+                println!("Update entity: {:?}", &new_entity);
                 diesel::update($table_id.filter(id.eq(update_id)))
                     .set(&new_entity)
                     .execute(&db.0)?;
@@ -76,7 +76,6 @@ macro_rules! build_model {
                 let updated_entity : $entity_struct_name =
                     $table_id.filter(id.eq(update_id))
                     .first(&db.0)?;
-
                 Ok($struct_name::from_entity(updated_entity))
             }
        }

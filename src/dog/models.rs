@@ -1,18 +1,16 @@
 
-use rocket::request::{FromForm, Form};
+use rocket::request::{FromForm};
 use serde::{Serialize};
 use chrono::NaiveDate;
-use diesel::query_builder::AsChangeset;
 use crate::schema::dogs;
-use crate::dog::forms::NaiveDateForm;
+use crate::util::forms::NaiveDateForm;
 use crate::widget::widgets::{HtmlForm, FormInputType};
 use crate::db_sqlite::DbConn;
-use std::collections::HashMap;
 use diesel::QueryResult;
 use crate::diesel::ExpressionMethods;
 use crate::diesel::QueryDsl;
 use crate::diesel::RunQueryDsl;
-use crate::models::UserEntity;
+use crate::user::models::UserEntity;
 
 crate::build_model!(Dog; DogEntity; dogs; "dogs" => {
     name : String,
@@ -39,8 +37,6 @@ pub struct DogForm {
     pub birth : NaiveDateForm,
     pub death : Option<NaiveDateForm>,
 }
-
-pub struct DogHtmlForm(HtmlForm);
 
 impl DogForm {
     pub fn from_dog(dog : Option<&Dog>, db : &DbConn) -> String {
