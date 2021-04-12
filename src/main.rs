@@ -15,7 +15,8 @@ use tera::Context;
 
 use petbook::db_sqlite::DbConn;
 use petbook::user::models::{UserEntity, User, Address};
-use petbook::dog::models::{Dog, DogForm};
+use petbook::dog::models::Dog;
+use petbook::dog::forms::DogForm;
 use petbook::user::auth::password::{LoginInfo, UserCreateInfo};
 use petbook::user::auth::facebook::{FacebookLoginInfo, FacebookCreateInfo};
 use petbook::user::auth::google::{GoogleLoginInfo, GoogleCreateInfo};
@@ -256,7 +257,8 @@ fn main() {
                 pet_data,
                 pet_update_post,
                 pet_add_get,
-                pet_add_post
+                pet_add_post,
+                pet_logs
             ],
         )
         .launch();

@@ -35,6 +35,16 @@ table! {
 }
 
 table! {
+    logs (id) {
+        id -> Integer,
+        log_date -> Date,
+        summary -> Text,
+        description -> Nullable<Text>,
+        dog_id -> Integer,
+    }
+}
+
+table! {
     users (id) {
         id -> Integer,
         name -> Text,
@@ -58,5 +68,6 @@ allow_tables_to_appear_in_same_query!(
     addresses,
     dog_breeds,
     dogs,
+    logs,
     users,
 );
