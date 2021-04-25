@@ -2,7 +2,7 @@ use rocket::request::FromForm;
 use crate::util::forms::NaiveDateForm;
 use crate::dog::models::{Dog, Log};
 use crate::db_sqlite::DbConn;
-use chrono::{NaiveDate, Utc};
+use chrono::{NaiveDate};
 use crate::widget::widgets::{FormInputType, HtmlForm};
 use crate::user::models::UserEntity;
 
@@ -81,12 +81,7 @@ pub struct LogForm {
 impl LogForm {
     pub fn from_object(log: Option<&Log>) -> String
     {
-        let default_log = Log {
-            log_date: Utc::today().naive_local(),
-            summary: "".to_string(),
-            description: None,
-            dog_id: 0
-        };
+        let default_log = Log :: new(None);
         let l = log.unwrap_or(&default_log);
 
         let fields: Vec<FormInputType> = vec![

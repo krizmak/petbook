@@ -1,0 +1,15 @@
+{% extends "base_nav" %}
+{% block content %}
+
+    <table class="table table-striped table-hover">
+      <tbody>
+{% for log in logs %}
+        <tr>
+          <td><a href="/pet/logs/{{log.0}}">{{log.1.log_date}}</a></td>
+        </tr>
+{% endfor %}
+      </tbody>
+    </table>
+    <a class="btn btn-primary" href="/pet/{{dog_id}}/logs/add">Add</a>
+
+{% endblock content %}

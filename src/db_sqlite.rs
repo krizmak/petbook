@@ -8,7 +8,7 @@ use diesel::QueryResult;
 use crate::dog::models::{DogEntity, DogBreedEntity};
 
 #[database("sqlite_database")]
-pub struct DbConn(diesel::SqliteConnection);
+pub struct DbConn(pub(crate) diesel::SqliteConnection);
 
 impl DbConn {
     pub fn insert_user(&self, user: &User) -> QueryResult<UserEntity> {

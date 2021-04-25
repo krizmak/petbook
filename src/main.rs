@@ -15,8 +15,8 @@ use tera::Context;
 
 use petbook::db_sqlite::DbConn;
 use petbook::user::models::{UserEntity, User, Address};
-use petbook::dog::models::Dog;
-use petbook::dog::forms::DogForm;
+use petbook::dog::models::{Dog, Log};
+use petbook::dog::forms::{DogForm, LogForm};
 use petbook::user::auth::password::{LoginInfo, UserCreateInfo};
 use petbook::user::auth::facebook::{FacebookLoginInfo, FacebookCreateInfo};
 use petbook::user::auth::google::{GoogleLoginInfo, GoogleCreateInfo};
@@ -232,6 +232,49 @@ fn pet_add_post(db: DbConn, user: UserEntity, dog_form : Form<DogForm>) -> Redir
     Redirect::to(uri!(user_pets))
 }
 
+#[get("/pet/<id>/logs")]
+fn pet_logs_get(db: DbConn, id: i32, user: UserEntity) -> Result<Template,UserCreationError> {
+    let (dog_id, dog) = Dog::get(id, &db).map_err(|_| UserCreationError::InternalError("Google error".to_owned()))?;
+    if dog.owner_id == user.id {
+        let mut context = Context::new();
+        let logs = Log::get_pet_logs(&dog_id, &db);
+        context.insert("dog_id",&dog_id);
+        context.insert("logs", &logs);
+        Ok(Template::render("pet/logs", &context.into_json()))
+    } else {
+        Err(UserCreationError::InternalError("other error".to_owned()))
+    }
+}
+
+#[get("/pet/<id>/logs/add")]
+fn pet_logs_add_get(db: DbConn, id: i32, user: UserEntity) -> Result<Template,UserCreationError> {
+    let (dog_id, dog) = Dog::get(id, &db).map_err(|_| UserCreationError::InternalError("Google error".to_owned()))?;
+    if dog.owner_id == user.id {
+        let mut context = Context::new();
+        context.insert("dog_id", &dog_id);
+        context.insert("log", &LogForm::from_object(None));
+        Ok(Template::render("pet/log/add", context.into_json()))
+    } else {
+        Err(UserCreationError::InternalError("other error".to_owned()))
+    }
+}
+
+#[post("/pet/<id>/logs/add", data = "<log_form>")]
+fn pet_logs_add_post(db: DbConn, id: i32, user: UserEntity, log_form : Form<LogForm>) -> Result<Redirect,UserCreationError> {
+    let (dog_id, dog) = Dog::get(id, &db).map_err(|_| UserCreationError::InternalError("Google error".to_owned()))?;
+    if dog.owner_id == user.id {
+        let mut log = Log::new(Some(dog_id));
+        log_form.to_object(& mut log);
+        println!("adding: {:?}", &log);
+        log.insert(&db);
+        Ok(Redirect::to(uri!(pet_logs_get: dog_id)))
+    }
+    else {
+        Ok(Redirect::to(uri!(user_pets)))
+    }
+}
+
+
 // main
 fn main() {
     rocket::ignite()
@@ -258,7 +301,9 @@ fn main() {
                 pet_update_post,
                 pet_add_get,
                 pet_add_post,
-                pet_logs
+                pet_logs_get,
+                pet_logs_add_get,
+                pet_logs_add_post
             ],
         )
         .launch();

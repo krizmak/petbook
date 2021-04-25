@@ -1,5 +1,5 @@
-{% extends "base" %}
-{% block navbar %}
+{% extends "base_nav" %}
+{% block subnavbar %}
 <nav class="navbar navbar-expand-md navbar-light bg-light">
     <a class="navbar-brand" href="#">
         <img src="/static/img/dog.svg" width="30" height="30" class="d-inline-block align-top" alt=""/>
@@ -11,21 +11,16 @@
     <div class="collapse navbar-collapse" id="navbarSupportedContent">
         <ul class="navbar-nav mr-auto">
             <li class="nav-item">
-                <a class="nav-link" href="/user/pets">My pets</a>
+                <a class="nav-link" href="/user/pets">Add</a>
             </li>
             <li class="nav-item">
-                <a class="nav-link" href="/user/data">Found a pet</a>
+                <a class="nav-link" href="/user/data">Found</a>
             </li>
             <li class="nav-item">
-                <a class="nav-link" href="/user/data">Profile</a>
-            </li>
-            <li class="nav-item d-flex justify-content-lg-end">
-                <a class="nav-link" href="/user/logout">Logout</a>
+                <a class="nav-link" href="/user/data">Logs</a>
             </li>
         </ul>
     </div>
 </nav>
-{% block subnavbar %}
-{% endblock subnavbar %}
 
-{% endblock navbar %}
+{% endblock subnavbar %}
