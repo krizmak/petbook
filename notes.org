@@ -1,0 +1,99 @@
+#-*- coding: utf-8 -*-
+* 1. fázis
+** bejelentkezés nélkül
+*** lista: észlelések 
+*** lista: elveszések
+**** kommentelés
+*** új észlelés
+**** térkép, fénykép, adatok
+**** kommentelhető
+**** egy regisztrált felhasználó lezárhatja (kutyát megadja)
+*** regisztráció
+*** belépés
+** felhasználó menü
+*** profilkezelés
+**** adatok módosítása (név, email, cím, telefonszám, nyelv)
+     - címnél irszám, város, utca beírható, vagy jóváhagyott listából válaszható
+     - bevitt irszám, város, utca jelöltlistába mentés
+**** új jelszó vagy fb vagy google fiók
+**** jelszó vagy fb vagy google fiók módosítás
+*** lista: saját kutyák
+**** választás -> kutya almenü
+*** új kutya
+**** ld kutyaprofil
+*** új észlelés
+**** idő, hely, leírás fénykép
+*** lista: elveszések
+**** kommentelés
+*** lista: észlelések
+**** kommentelés
+**** lezárás
+*** lista: értesítések
+**** közelgő naptári esemény
+**** friss elveszés
+**** friss észlelés 
+*** nyelvváltás
+*** kijelentkezés
+** kutya almenü
+*** kutyaprofil módosítás
+**** adatok módosítása (fajta, nem, szín, chip ID, születési dátum, profilkép)
+     fajta, szín megadható, vagy jóváhagyott listából választható
+*** eseménynaptár kezelés
+**** új esemény
+***** gyógyszer típus (időpont, gyógyszer neve)
+***** oltás típus (időpont, oltás neve, orvos)
+***** átalalános típus (időpont leírás)
+**** új emlékeztető
+***** egyszeri vagy többszöri (pl. szólj 3 havonta kullancsgyógyszer miatt)
+**** esemény kezelés
+***** módosítás
+***** törlés
+**** emlékeztető kezelés
+***** módosítás
+***** törlés
+**** TODO naptár nézet
+**** esemény nézet
+*** új elveszés
+**** térkép, fénykép, adatok
+*** aktív elveszés kezelése
+**** adatmódosítás
+**** kommentelés
+**** lezárás
+** adminként
+*** lista: kutyafajta jelöltek/összes 
+    - jóváhagyás
+    - módosítás
+    - törlés
+    - új
+*** lista: kutyaszín jelöltek/összes 
+    - jóváhagyás
+    - módosítás
+    - törlés
+    - új
+*** lista: irszám jelöltek/összes 
+    - jóváhagyás
+    - módosítás
+    - törlés
+    - új
+*** lista: város jelöltek/összes 
+    - jóváhagyás
+    - módosítás
+    - törlés
+    - új
+*** lista: utca jelöltek/összes 
+    - jóváhagyás
+    - módosítás
+    - törlés
+    - új
+*** lista: felhasználók
+**** felhasználó felfüggesztés
+**** felhasználó törlés
+**** aliasfelhasználó választás -> aliasfelhasználó almenü
+*** lista: kutyák
+*** lista: elveszések
+*** lista: megtalálások
+* 2. sétatárs kereső
+* 3. fázis
+** örökbefogadási adatbázis
+* 4. fázis
+** állatorvosi rendelők, kutyasulik, kutyásboltok, kutyakozmetikák, kutyás hírek
